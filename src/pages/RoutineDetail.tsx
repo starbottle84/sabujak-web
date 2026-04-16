@@ -1,5 +1,16 @@
-import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useChildren } from '../hooks/useChildren';
+import { useRoutines } from '../hooks/useRoutines';
+import { useRoutineLogs } from '../hooks/useRoutineLogs';
+
+type RoutineItem = {
+  id: string;
+  label?: string;
+  name?: string;
+  emoji?: string;
+  points: number;
+  category?: string;
+};
 
 const morningMustDo = [
   { id: 'wake', emoji: '🛌', label: '기상하기', points: 10 },
@@ -67,21 +78,38 @@ const RoutineDetail = () => {
   const routineType = params.type === 'evening' ? 'evening' : 'morning';
   const isMorning = routineType === 'morning';
   const title = isMorning ? '☀️ 아침 루틴' : '🌙 저녁 루틴';
-  const mustDoItems = isMorning ? morningMustDo : eveningMustDo;
-  const extraItems = isMorning ? morningExtra : eveningExtra;
+  const { children } = useChildren();
+  const child = children[0] ?? null;
+  const { routines } = useRoutines(child?.id ?? null);
+  const { logs, checkRoutine } = useRoutineLogs(child?.id ?? null);
 
-  const [completedIds, setCompletedIds] = useState<string[]>([mustDoItems[0].id, extraItems[1].id]);
+  const mustDoItems: RoutineItem[] = routines.length
+    ? routines.filter((routine) => routine.type === routineType && routine.category === 'must')
+    : isMorning
+    ? morningMustDo
+    : eveningMustDo;
 
+  const extraItems: RoutineItem[] = routines.length
+    ? routines.filter((routine) => routine.type === routineType && routine.category === 'extra')
+    : isMorning
+    ? morningExtra
+    : eveningExtra;
+
+  const checkedIds = logs.map((log) => log.routine_id);
   const totalTasks = mustDoItems.length + extraItems.length;
-  const completedCount = completedIds.filter((id) => [...mustDoItems, ...extraItems].some((item) => item.id === id)).length;
-  const progressValue = Math.round((completedCount / totalTasks) * 100);
+  const completedCount = checkedIds.filter((id) => [...mustDoItems, ...extraItems].some((item) => item.id === id)).length;
+  const progressValue = totalTasks ? Math.round((completedCount / totalTasks) * 100) : 0;
   const roundedProgress = Math.min(100, Math.max(0, Math.round(progressValue / 5) * 5));
   const progressClass = progressWidthClasses[roundedProgress];
 
-  const toggleTask = (id: string) => {
-    setCompletedIds((current) =>
-      current.includes(id) ? current.filter((itemId) => itemId !== id) : [...current, id]
-    );
+  const handleCheck = async (routine: any) => {
+    if (!child) return;
+    if (checkedIds.includes(routine.id)) return;
+    try {
+      await checkRoutine(routine.id, child.id, routine.points);
+    } catch (error) {
+      console.error('Routine check failed:', error);
+    }
   };
 
   return (
@@ -137,12 +165,14 @@ const RoutineDetail = () => {
 
             <div className="grid grid-cols-3 gap-4">
               {mustDoItems.map((item) => {
-                const completed = completedIds.includes(item.id);
+                const completed = checkedIds.includes(item.id);
+                const emoji = item.emoji ?? '✅';
+                const label = item.label ?? item.name ?? '루틴';
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => toggleTask(item.id)}
+                    onClick={() => handleCheck(item)}
                     className="group flex flex-col items-center gap-1 cursor-pointer"
                   >
                     <div
@@ -150,9 +180,9 @@ const RoutineDetail = () => {
                         completed ? 'border-green-500 bg-green-100' : 'border-orange-300'
                       }`}
                     >
-                      <span>{item.emoji}</span>
+                      <span>{emoji}</span>
                     </div>
-                    <p className="text-xs text-center text-slate-900">{item.label}</p>
+                    <p className="text-xs text-center text-slate-900">{label}</p>
                     <span className="rounded-full bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">
                       +{item.points}P
                     </span>
@@ -170,12 +200,14 @@ const RoutineDetail = () => {
 
             <div className="grid grid-cols-3 gap-4">
               {extraItems.map((item) => {
-                const completed = completedIds.includes(item.id);
+                const completed = checkedIds.includes(item.id);
+                const emoji = item.emoji ?? '✅';
+                const label = item.label ?? item.name ?? '루틴';
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => toggleTask(item.id)}
+                    onClick={() => handleCheck(item)}
                     className="group flex flex-col items-center gap-1 cursor-pointer"
                   >
                     <div
@@ -183,9 +215,9 @@ const RoutineDetail = () => {
                         completed ? 'border-green-500 bg-green-100' : 'border-orange-300'
                       }`}
                     >
-                      <span>{item.emoji}</span>
+                      <span>{emoji}</span>
                     </div>
-                    <p className="text-xs text-center text-slate-900">{item.label}</p>
+                    <p className="text-xs text-center text-slate-900">{label}</p>
                     <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
                       +{item.points}P
                     </span>

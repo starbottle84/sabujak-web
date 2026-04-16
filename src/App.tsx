@@ -1,5 +1,10 @@
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+
+import { supabase } from './lib/supabase';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import ChildHome from './pages/ChildHome';
 import RoutineDetail from './pages/RoutineDetail';
 import ParentSettings from './pages/ParentSettings';
@@ -17,17 +22,18 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  const hideBottomNav = location.pathname === '/';
+  const hideBottomNav = location.pathname === '/' || location.pathname === '/signup';
 
   return (
     <>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/home" element={<ChildHome />} />
-        <Route path="/routine/:type" element={<RoutineDetail />} />
-        <Route path="/points" element={<Points />} />
-        <Route path="/stats" element={<Statistics />} />
-        <Route path="/settings" element={<ParentSettings />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/home" element={<ProtectedRoute><ChildHome /></ProtectedRoute>} />
+        <Route path="/routine/:type" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
+        <Route path="/points" element={<ProtectedRoute><Points /></ProtectedRoute>} />
+        <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><ParentSettings /></ProtectedRoute>} />
         <Route path="/parent-settings" element={<Navigate to="/settings" replace />} />
         <Route path="/statistics" element={<Navigate to="/stats" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -35,6 +41,37 @@ function AppRoutes() {
       {!hideBottomNav && <BottomNav />}
     </>
   );
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const [checking, setChecking] = useState(true);
+  const [sessionActive, setSessionActive] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!mounted) return;
+      setSessionActive(!!data.session);
+      setChecking(false);
+    };
+
+    checkSession();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (checking) {
+    return null;
+  }
+
+  if (!sessionActive) {
+    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+  }
+
+  return children;
 }
 
 export default App;

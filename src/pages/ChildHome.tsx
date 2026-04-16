@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useChildren } from '../hooks/useChildren';
 
 const ChildHome = () => {
   const navigate = useNavigate();
+  const { children, loading } = useChildren();
 
   const today = useMemo(() => {
     return new Date().toLocaleDateString('ko-KR', {
@@ -31,7 +33,9 @@ const ChildHome = () => {
         </header>
 
         <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-3xl font-semibold text-slate-900">안녕, 지우야!</h2>
+          <h2 className="text-3xl font-semibold text-slate-900">
+            {loading ? '자녀 정보를 불러오는 중이에요...' : `안녕, ${children[0]?.name ?? '지우'}야!`}
+          </h2>
           <p className="mt-3 text-sm text-slate-500">오늘의 루틴을 체크하고 재미있게 시작해요.</p>
         </section>
 

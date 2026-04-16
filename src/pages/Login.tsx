@@ -1,7 +1,35 @@
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const fromPath = (location.state as { from?: string } | null)?.from || '/home';
+
+  const handleLogin = async () => {
+    setErrorMessage(null);
+    if (!email || !password) {
+      setErrorMessage('이메일과 비밀번호를 모두 입력해주세요.');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    navigate(fromPath, { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -14,10 +42,16 @@ export default function Login() {
           우리 아이 루틴 & 리워드 앱
         </p>
 
+        {errorMessage ? (
+          <div className="mb-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">{errorMessage}</div>
+        ) : null}
+
         <div className="relative mb-3">
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">@</span>
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="parent@email.com"
             className="w-full bg-gray-100 rounded-full py-2.5 pl-8 pr-4 text-sm outline-none"
           />
@@ -27,6 +61,8 @@ export default function Login() {
           <span className="absolute left-3 top-2.5 text-gray-400 text-sm">🔒</span>
           <input
             type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             className="w-full bg-gray-100 rounded-full py-2.5 pl-8 pr-4 text-sm outline-none"
           />
@@ -38,10 +74,11 @@ export default function Login() {
 
         <button
           type="button"
-          onClick={() => navigate('/home')}
-          className="w-full bg-teal-700 text-white rounded-full py-2.5 text-sm font-medium mb-4"
+          onClick={handleLogin}
+          disabled={loading}
+          className="w-full bg-teal-700 text-white rounded-full py-2.5 text-sm font-medium mb-4 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          로그인 →
+          {loading ? '로그인 중...' : '로그인 →'}
         </button>
 
         <div className="flex items-center gap-2 mb-4">
@@ -60,8 +97,10 @@ export default function Login() {
         </div>
 
         <p className="text-xs text-center text-gray-400">
-          계정이 없으신가요?{" "}
-          <span className="text-teal-600 font-medium cursor-pointer">회원가입</span>
+          계정이 없으신가요?{' '}
+          <button type="button" onClick={() => navigate('/signup')} className="text-teal-600 font-medium">
+            회원가입
+          </button>
         </p>
 
         <p className="text-xs text-center text-gray-300 mt-3">

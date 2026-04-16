@@ -1,5 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { useChildren } from '../hooks/useChildren';
+import { useRoutines } from '../hooks/useRoutines';
 
 type RoutineGroup = 'morningMust' | 'morningExtra' | 'eveningMust' | 'eveningExtra';
 type RoutineItem = {
@@ -7,7 +10,6 @@ type RoutineItem = {
   label: string;
   points: number;
 };
-type RoutineState = Record<RoutineGroup, Record<string, boolean>>;
 
 const morningMustRoutines: RoutineItem[] = [
   { id: 'wake', label: '기상하기', points: 5 },
@@ -108,47 +110,43 @@ const ParentSettings = () => {
   const alertRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
-  const [selectedChild, setSelectedChild] = useState<'kimjiwoo' | 'kimminjun'>('kimjiwoo');
+  const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const { children, loading: childrenLoading } = useChildren();
+  const {
+    routines,
+    toggleRoutine,
+    addRoutine,
+    saveRoutineState,
+  } = useRoutines(selectedChildId, true);
 
-  // Initialize routine state with all items enabled by default
-  const initializeRoutineState = (): RoutineState => {
-    const state: RoutineState = {
-      morningMust: {},
-      morningExtra: {},
-      eveningMust: {},
-      eveningExtra: {},
-    };
+  useEffect(() => {
+    if (!selectedChildId && children.length > 0) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children, selectedChildId]);
 
-    morningMustRoutines.forEach(item => {
-      state.morningMust[item.id] = true;
-    });
-    morningExtraRoutines.forEach(item => {
-      state.morningExtra[item.id] = false;
-    });
-    eveningMustRoutines.forEach(item => {
-      state.eveningMust[item.id] = true;
-    });
-    eveningExtraRoutines.forEach(item => {
-      state.eveningExtra[item.id] = false;
-    });
+  const getGroupRoutines = (group: RoutineGroup) => {
+    if (!routines.length) {
+      if (group === 'morningMust') return [...morningMustRoutines];
+      if (group === 'morningExtra') return [...morningExtraRoutines];
+      if (group === 'eveningMust') return [...eveningMustRoutines];
+      return [...eveningExtraRoutines];
+    }
 
-    return state;
+    return routines
+      .filter((routine) => {
+        const isMorning = group.startsWith('morning');
+        const category = group.includes('Must') ? 'must' : 'extra';
+        return routine.type === (isMorning ? 'morning' : 'evening') && routine.category === category;
+      })
+      .map((routine) => ({
+        id: routine.id,
+        label: routine.name,
+        points: routine.points,
+        is_active: routine.is_active,
+      }));
   };
-
-  const [routineState, setRoutineState] = useState<RoutineState>(initializeRoutineState);
-
-  // Custom routines state
-  const [customRoutines, setCustomRoutines] = useState<{
-    morningMust: RoutineItem[];
-    morningExtra: RoutineItem[];
-    eveningMust: RoutineItem[];
-    eveningExtra: RoutineItem[];
-  }>({
-    morningMust: [],
-    morningExtra: [],
-    eveningMust: [],
-    eveningExtra: [],
-  });
 
   // Add custom routine form state
   const [newRoutine, setNewRoutine] = useState({
@@ -165,47 +163,44 @@ const ParentSettings = () => {
     weeklyReport: false,
   });
   const [pinLocked, setPinLocked] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const toggleRoutine = (group: RoutineGroup, key: string) => {
-    setRoutineState((current) => ({
-      ...current,
-      [group]: {
-        ...current[group],
-        [key]: !current[group][key],
-      },
-    }));
+  const handleLogout = async () => {
+    setAuthError(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthError(error.message);
+      return;
+    }
+    navigate('/');
   };
 
-  const addCustomRoutine = () => {
-    if (!newRoutine.label.trim() || !newRoutine.points.trim()) return;
+  const handleAddCustomRoutine = async () => {
+    if (!selectedChildId || !newRoutine.label.trim() || !newRoutine.points.trim()) return;
 
-    const points = parseInt(newRoutine.points);
+    const points = parseInt(newRoutine.points, 10);
     if (isNaN(points) || points <= 0) return;
 
-    const newItem: RoutineItem = {
-      id: `custom_${Date.now()}`,
-      label: newRoutine.label.trim(),
-      points,
-    };
+    try {
+      const type = newRoutine.group.startsWith('morning') ? 'morning' : 'evening';
+      const category = newRoutine.group.includes('Must') ? 'must' : 'extra';
+      await addRoutine(newRoutine.label.trim(), points, type, category);
+      setNewRoutine({ label: '', points: '', group: 'morningMust' });
+      setSaveMessage('새 루틴이 추가되었습니다. 저장 버튼을 눌러주세요.');
+    } catch (error) {
+      setSaveMessage('루틴 추가 중 오류가 발생했습니다.');
+      console.error(error);
+    }
+  };
 
-    setCustomRoutines((current) => ({
-      ...current,
-      [newRoutine.group]: [...current[newRoutine.group], newItem],
-    }));
-
-    setRoutineState((current) => ({
-      ...current,
-      [newRoutine.group]: {
-        ...current[newRoutine.group],
-        [newItem.id]: true,
-      },
-    }));
-
-    setNewRoutine({
-      label: '',
-      points: '',
-      group: 'morningMust',
-    });
+  const handleSaveRoutines = async () => {
+    try {
+      await saveRoutineState();
+      setSaveMessage('루틴 설정이 저장되었습니다.');
+    } catch (error) {
+      setSaveMessage('루틴 저장 중 오류가 발생했습니다.');
+      console.error(error);
+    }
   };
 
   const toggleNotification = (key: keyof typeof notificationState) => {
@@ -305,27 +300,28 @@ const ParentSettings = () => {
               </div>
 
               <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">🐻</div>
-                  <div className="mt-6 space-y-2 text-center">
-                    <p className="text-xl font-semibold text-slate-900">지우</p>
-                    <p className="text-sm text-slate-500">7세 · 초등학생 준비중</p>
-                    <button className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
-                      수정
-                    </button>
+                {childrenLoading ? (
+                  <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm text-center py-16 text-slate-500">
+                    자녀를 불러오는 중입니다.
                   </div>
-                </div>
-
-                <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">🐰</div>
-                  <div className="mt-6 space-y-2 text-center">
-                    <p className="text-xl font-semibold text-slate-900">민우</p>
-                    <p className="text-sm text-slate-500">4세 · 호기심 많은 탐험가</p>
-                    <button className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
-                      수정
-                    </button>
+                ) : children.length > 0 ? (
+                  children.map((child) => (
+                    <div key={child.id} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                      <div className="grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">🐻</div>
+                      <div className="mt-6 space-y-2 text-center">
+                        <p className="text-xl font-semibold text-slate-900">{child.name}</p>
+                        <p className="text-sm text-slate-500">{child.age}세 · 총 {child.total_points ?? 0}P</p>
+                        <button className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
+                          수정
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm text-center py-16 text-slate-500">
+                    등록된 자녀가 없습니다.
                   </div>
-                </div>
+                )}
 
                 <button className="flex flex-col items-center justify-center rounded-[32px] border-dashed border-2 border-slate-300 bg-white p-8 text-center text-slate-500 transition hover:border-teal-300 hover:text-teal-700">
                   <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">+</span>
@@ -342,54 +338,46 @@ const ParentSettings = () => {
                   <h2 className="mt-2 text-2xl font-bold text-slate-900">자녀별 아침과 저녁 루틴을 관리하세요.</h2>
                 </div>
                 <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedChild('kimjiwoo')}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      selectedChild === 'kimjiwoo' ? 'bg-teal-700 text-white' : 'text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    김지우
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedChild('kimminjun')}
-                    className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                      selectedChild === 'kimminjun' ? 'bg-teal-700 text-white' : 'text-slate-700 hover:bg-slate-200'
-                    }`}
-                  >
-                    김민준
-                  </button>
+                  {childrenLoading ? (
+                    <span className="px-4 py-2 text-sm text-slate-500">자녀 불러오는 중...</span>
+                  ) : children.length > 0 ? (
+                    children.map((child) => (
+                      <button
+                        key={child.id}
+                        type="button"
+                        onClick={() => setSelectedChildId(child.id)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          selectedChildId === child.id ? 'bg-teal-700 text-white' : 'text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {child.name}
+                      </button>
+                    ))
+                  ) : (
+                    <span className="px-4 py-2 text-sm text-slate-500">자녀가 없습니다.</span>
+                  )}
                 </div>
               </div>
 
               <div className="mt-8 grid gap-6 xl:grid-cols-2">
                 <RoutineGroupCard
                   title="☀️ 아침 — 필수 루틴"
-                  group="morningMust"
-                  routines={[...morningMustRoutines, ...customRoutines.morningMust]}
-                  state={routineState}
+                  routines={getGroupRoutines('morningMust')}
                   onToggle={toggleRoutine}
                 />
                 <RoutineGroupCard
                   title="☀️ 아침 — 엑스트라"
-                  group="morningExtra"
-                  routines={[...morningExtraRoutines, ...customRoutines.morningExtra]}
-                  state={routineState}
+                  routines={getGroupRoutines('morningExtra')}
                   onToggle={toggleRoutine}
                 />
                 <RoutineGroupCard
                   title="🌙 저녁 — 필수 루틴"
-                  group="eveningMust"
-                  routines={[...eveningMustRoutines, ...customRoutines.eveningMust]}
-                  state={routineState}
+                  routines={getGroupRoutines('eveningMust')}
                   onToggle={toggleRoutine}
                 />
                 <RoutineGroupCard
                   title="🌙 저녁 — 엑스트라"
-                  group="eveningExtra"
-                  routines={[...eveningExtraRoutines, ...customRoutines.eveningExtra]}
-                  state={routineState}
+                  routines={getGroupRoutines('eveningExtra')}
                   onToggle={toggleRoutine}
                 />
               </div>
@@ -436,8 +424,8 @@ const ParentSettings = () => {
                   <div className="flex items-end">
                     <button
                       type="button"
-                      onClick={addCustomRoutine}
-                      disabled={!newRoutine.label.trim() || !newRoutine.points.trim()}
+                      onClick={handleAddCustomRoutine}
+                      disabled={!selectedChildId || !newRoutine.label.trim() || !newRoutine.points.trim()}
                       className="w-full rounded-2xl bg-teal-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       추가하기
@@ -446,8 +434,17 @@ const ParentSettings = () => {
                 </div>
               </div>
 
+              {saveMessage ? (
+                <div className="mt-4 rounded-2xl bg-emerald-100 px-4 py-3 text-sm text-emerald-800">
+                  {saveMessage}
+                </div>
+              ) : null}
               <div className="mt-6 flex justify-end">
-                <button className="rounded-full bg-teal-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-800">
+                <button
+                  type="button"
+                  onClick={handleSaveRoutines}
+                  className="rounded-full bg-teal-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
+                >
                   변경사항 저장
                 </button>
               </div>
@@ -553,26 +550,36 @@ const ParentSettings = () => {
                   </dl>
                 </div>
                 <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">부모 PIN 설정</h3>
-                      <p className="mt-2 text-sm text-slate-500">아이가 설정 화면에 접근하지 못하도록 보호합니다.</p>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900">부모 PIN 설정</h3>
+                        <p className="mt-2 text-sm text-slate-500">아이가 설정 화면에 접근하지 못하도록 보호합니다.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPinLocked((value) => !value)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          pinLocked ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {pinLocked ? 'ON' : 'OFF'}
+                      </button>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setPinLocked((value) => !value)}
-                      className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                        pinLocked ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-700'
-                      }`}
+                      onClick={handleLogout}
+                      className="rounded-full bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
                     >
-                      {pinLocked ? 'ON' : 'OFF'}
+                      로그아웃
                     </button>
+                    {authError ? <p className="text-sm text-rose-600">{authError}</p> : null}
                   </div>
                 </div>
               </div>
 
               <div className="mt-6 rounded-[28px] bg-sky-100 p-5 text-sm text-slate-700">
-                부모 PIN을 설정하면 아이가 설정 화면을 열 수 없어요. 숫자 4자리로 설정해요.
+                부모 PIN을 설정하면 아이가 설정 화면에 열 수 없어요. 숫자 4자리로 설정해요.
               </div>
             </section>
 
@@ -599,23 +606,24 @@ const ParentSettings = () => {
 
 function RoutineGroupCard({
   title,
-  group,
   routines,
-  state,
   onToggle,
 }: {
   title: string;
-  group: RoutineGroup;
-  routines: RoutineItem[];
-  state: RoutineState;
-  onToggle: (group: RoutineGroup, key: string) => void;
+  routines: Array<{
+    id: string;
+    label: string;
+    points: number;
+    is_active?: boolean;
+  }>;
+  onToggle: (id: string) => void;
 }) {
   return (
     <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 shadow-sm">
       <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
       <div className="mt-6 max-h-96 overflow-y-auto space-y-3">
         {routines.map((item) => {
-          const enabled = state[group][item.id];
+          const enabled = item.is_active ?? true;
           return (
             <div key={item.id} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
               <div className="flex-1 min-w-0">
@@ -624,7 +632,7 @@ function RoutineGroupCard({
               </div>
               <button
                 type="button"
-                onClick={() => onToggle(group, item.id)}
+                onClick={() => onToggle(item.id)}
                 className={`inline-flex h-8 w-16 items-center rounded-full px-1 transition ml-3 ${
                   enabled ? 'bg-teal-700' : 'bg-slate-200'
                 }`}
