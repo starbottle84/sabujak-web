@@ -19,7 +19,7 @@ const BottomNav = () => {
       ]
     : [
         { label: '홈', icon: '🏠', to: '/home' },
-        { label: '포인트', icon: '🪙', to: '/points' },
+        { label: '포인트', icon: '💰', to: '/points' },
       ];
 
   return (

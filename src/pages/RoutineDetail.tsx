@@ -115,10 +115,17 @@ const RoutineDetail = () => {
   return (
     <div className="min-h-screen bg-gray-100 text-slate-900 px-4 py-5 pb-28">
       <div className="mx-auto max-w-5xl">
-        <header className="flex flex-col gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-          <div>
+        <header className="flex items-center gap-3 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/home')}
+            className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+          >
+            ←
+          </button>
+          <div className="flex-1">
             <p className="text-sm text-slate-500">사부작</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">루틴 상세</h1>
+            <h1 className="mt-0.5 text-xl font-semibold text-slate-900">루틴 상세</h1>
           </div>
           <div className="inline-flex items-center gap-3 rounded-3xl bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             <span className="rounded-full bg-emerald-100 px-3 py-2">⭐</span>
@@ -130,13 +137,6 @@ const RoutineDetail = () => {
         </header>
 
         <main className="mt-6 space-y-6 overflow-y-auto pb-6">
-          <button
-            type="button"
-            onClick={() => navigate('/home')}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            ← 홈으로
-          </button>
 
           <section className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

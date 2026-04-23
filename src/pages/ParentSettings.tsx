@@ -107,6 +107,7 @@ const ParentSettings = () => {
   const navigate = useNavigate();
   const profileRef = useRef<HTMLDivElement>(null);
   const routineRef = useRef<HTMLDivElement>(null);
+  const pointsRef = useRef<HTMLDivElement>(null);
   const alertRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
 
@@ -185,6 +186,53 @@ const ParentSettings = () => {
   const [userInfo, setUserInfo] = useState<{ email: string; createdAt: string } | null>(null);
   const [localOverrides, setLocalOverrides] = useState<Record<string, boolean>>({});
   const [notifSaved, setNotifSaved] = useState(false);
+  const [pointsConfirm, setPointsConfirm] = useState<{ childId: string; action: 'reset' | 'disburse' } | null>(null);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  const [pointsMessage, setPointsMessage] = useState<string | null>(null);
+  const [childAvatarOverrides, setChildAvatarOverrides] = useState<Record<string, string>>({});
+  const [editAvatarFor, setEditAvatarFor] = useState<string | null>(null);
+
+  const executePointsAction = async () => {
+    if (!pointsConfirm) return;
+    setPointsLoading(true);
+    const { childId, action } = pointsConfirm;
+    const child = children.find(c => c.id === childId);
+    const currentPoints = child?.total_points ?? 0;
+    const { error } = await supabase.from('children').update({ total_points: 0 }).eq('id', childId);
+    setPointsLoading(false);
+    setPointsConfirm(null);
+    if (error) {
+      setPointsMessage('오류가 발생했습니다: ' + error.message);
+    } else if (action === 'disburse') {
+      setPointsMessage(`${child?.name ?? '자녀'}에게 ${(currentPoints * 10).toLocaleString('ko-KR')}원 용돈이 지급되었습니다. 포인트가 0으로 리셋됩니다.`);
+    } else {
+      setPointsMessage(`${child?.name ?? '자녀'}의 포인트가 0으로 리셋되었습니다.`);
+    }
+    setTimeout(() => setPointsMessage(null), 4000);
+  };
+
+  const handleAvatarSelect = async (childId: string, value: string) => {
+    setChildAvatarOverrides(prev => ({ ...prev, [childId]: value }));
+    setEditAvatarFor(null);
+    await supabase.from('children').update({ avatar: value }).eq('id', childId);
+  };
+
+  const handlePhotoUpload = (childId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      await handleAvatarSelect(childId, base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const getAvatarDisplay = (child: { id: string; avatar?: string | null }) => {
+    const avatar = childAvatarOverrides[child.id] ?? child.avatar;
+    if (!avatar || avatar === 'boy') return { type: 'emoji', value: '🧒' };
+    if (avatar === 'girl') return { type: 'emoji', value: '👧' };
+    if (avatar.startsWith('data:') || avatar.startsWith('http')) return { type: 'img', value: avatar };
+    return { type: 'emoji', value: '🐻' };
+  };
 
   const handleToggle = (id: string) => {
     if (routines.length > 0) {
@@ -281,6 +329,9 @@ const ParentSettings = () => {
       case 'routine':
         ref = routineRef;
         break;
+      case 'points':
+        ref = pointsRef;
+        break;
       case 'alert':
         ref = alertRef;
         break;
@@ -320,6 +371,14 @@ const ParentSettings = () => {
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-slate-100 text-lg">📋</span>
                 루틴 편집
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollTo('points')}
+                className="flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-slate-100 text-lg">💰</span>
+                포인트 관리
               </button>
               <button
                 type="button"
@@ -367,18 +426,66 @@ const ParentSettings = () => {
                     자녀를 불러오는 중입니다.
                   </div>
                 ) : children.length > 0 ? (
-                  children.map((child) => (
-                    <div key={child.id} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                      <div className="grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">🐻</div>
-                      <div className="mt-6 space-y-2 text-center">
-                        <p className="text-xl font-semibold text-slate-900">{child.name}</p>
-                        <p className="text-sm text-slate-500">{child.age}세 · 총 {child.total_points ?? 0}P</p>
-                        <button className="mt-4 inline-flex items-center justify-center rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200">
-                          수정
-                        </button>
+                  children.map((child) => {
+                    const av = getAvatarDisplay(child);
+                    return (
+                      <div key={child.id} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
+                        <div className="relative grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">
+                          {av.type === 'img' ? (
+                            <img src={av.value} alt="avatar" className="h-16 w-16 rounded-full object-cover" />
+                          ) : (
+                            <span className="text-5xl">{av.value}</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEditAvatarFor(editAvatarFor === child.id ? null : child.id)}
+                            className="absolute bottom-2 right-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white shadow text-sm"
+                          >
+                            ✏️
+                          </button>
+                        </div>
+
+                        {editAvatarFor === child.id && (
+                          <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-2">
+                            <p className="text-xs font-semibold text-slate-500 text-center">캐릭터 선택</p>
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleAvatarSelect(child.id, 'boy')}
+                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400"
+                              >
+                                🧒<span className="text-xs text-slate-500">남자</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAvatarSelect(child.id, 'girl')}
+                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400"
+                              >
+                                👧<span className="text-xs text-slate-500">여자</span>
+                              </button>
+                              <label className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-2xl cursor-pointer hover:border-teal-400">
+                                📷<span className="text-xs text-slate-500">사진</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handlePhotoUpload(child.id, file);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="mt-4 space-y-2 text-center">
+                          <p className="text-xl font-semibold text-slate-900">{child.name}</p>
+                          <p className="text-sm text-slate-500">{child.age}세 · 총 {child.total_points ?? 0}P</p>
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm text-center py-16 text-slate-500">
                     등록된 자녀가 없습니다.
@@ -510,6 +617,87 @@ const ParentSettings = () => {
                   변경사항 저장
                 </button>
               </div>
+            </section>
+
+            <section ref={pointsRef} className="rounded-[32px] bg-white p-8 shadow-sm">
+              <div className="mb-6">
+                <p className="text-sm font-semibold text-teal-700">포인트 관리</p>
+                <h2 className="mt-2 text-2xl font-bold text-slate-900">용돈을 지급하거나 포인트를 리셋할 수 있습니다.</h2>
+                <p className="mt-1 text-sm text-slate-500">포인트 1P = 10원으로 계산됩니다.</p>
+              </div>
+
+              {pointsMessage && (
+                <div className="mb-4 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{pointsMessage}</div>
+              )}
+
+              {childrenLoading ? (
+                <p className="text-sm text-slate-500">자녀 정보를 불러오는 중...</p>
+              ) : children.length === 0 ? (
+                <p className="text-sm text-slate-500">등록된 자녀가 없습니다.</p>
+              ) : (
+                <div className="space-y-4">
+                  {children.map(child => (
+                    <div key={child.id} className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-lg font-semibold text-slate-900">{child.name}</p>
+                          <p className="text-sm text-slate-500">
+                            현재 <span className="font-bold text-teal-700">{(child.total_points ?? 0).toLocaleString('ko-KR')}P</span>
+                            {' '}· 용돈 환산{' '}
+                            <span className="font-bold text-amber-600">{((child.total_points ?? 0) * 10).toLocaleString('ko-KR')}원</span>
+                          </p>
+                        </div>
+
+                        {pointsConfirm?.childId === child.id ? (
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm font-semibold text-slate-700 text-center">
+                              {pointsConfirm.action === 'disburse'
+                                ? `${((child.total_points ?? 0) * 10).toLocaleString('ko-KR')}원을 지급하고 포인트를 0으로 리셋할까요?`
+                                : '포인트를 0으로 리셋할까요?'}
+                            </p>
+                            <div className="flex gap-2 justify-center">
+                              <button
+                                type="button"
+                                onClick={executePointsAction}
+                                disabled={pointsLoading}
+                                className="rounded-full bg-rose-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:opacity-60"
+                              >
+                                {pointsLoading ? '처리 중...' : '확인'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPointsConfirm(null)}
+                                className="rounded-full bg-slate-200 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-300"
+                              >
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPointsConfirm({ childId: child.id, action: 'disburse' })}
+                              disabled={(child.total_points ?? 0) === 0}
+                              className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              💸 용돈 지급 후 리셋
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPointsConfirm({ childId: child.id, action: 'reset' })}
+                              disabled={(child.total_points ?? 0) === 0}
+                              className="rounded-full bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              🔄 포인트만 리셋
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section ref={alertRef} className="rounded-[32px] bg-white p-8 shadow-sm">
