@@ -15,7 +15,7 @@ type RoutineItem = {
 const morningMustDo = [
   { id: 'wake', emoji: '🛌', label: '기상하기', points: 10 },
   { id: 'wash', emoji: '🧼', label: '세수하기', points: 10 },
-  { id: 'brush', emoji: '🪥', label: '양치하기', points: 10 },
+  { id: 'brush', emoji: '🦷', label: '양치하기', points: 10 },
   { id: 'dress', emoji: '👕', label: '옷 입기', points: 10 },
   { id: 'breakfast', emoji: '🥣', label: '아침 먹기', points: 12 },
   { id: 'bed', emoji: '🛏️', label: '침대 정리', points: 12 },
@@ -159,8 +159,7 @@ const RoutineDetail = () => {
 
           <section className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="inline-flex items-center gap-3 rounded-full bg-orange-50 px-4 py-2 text-sm font-semibold text-orange-700">
-              <span className="rounded-full bg-orange-100 px-2 py-1">필수 루틴</span>
-              <span className="text-slate-500">— 반드시 해야 해요</span>
+              <span className="rounded-full bg-orange-100 px-2 py-1">해야할 사부작거리</span>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -194,8 +193,7 @@ const RoutineDetail = () => {
 
           <section className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="inline-flex items-center gap-3 rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
-              <span className="rounded-full bg-emerald-100 px-2 py-1">엑스트라</span>
-              <span className="text-slate-500">— 하면 더 받아요!</span>
+              <span className="rounded-full bg-emerald-100 px-2 py-1">용돈 사부작거리</span>
             </div>
 
             <div className="grid grid-cols-3 gap-4">

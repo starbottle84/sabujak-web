@@ -15,7 +15,7 @@ type RoutineLog = {
 
 const ROUTINE_LABELS: Record<string, { label: string; icon: string }> = {
   wake: { label: '기상하기', icon: '⏰' },
-  brush: { label: '양치하기', icon: '🪥' },
+  brush: { label: '양치하기', icon: '🦷' },
   toy: { label: '장난감 정리', icon: '📦' },
   tidy: { label: '장난감 정리', icon: '📦' },
   dress: { label: '옷 입기', icon: '👕' },
@@ -152,7 +152,7 @@ export default function ChildSettings() {
   const progressValue = Math.min(100, Math.round((totalPoints / 1500) * 100));
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50 text-slate-900 px-4 py-6 pb-28 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
         <header className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
@@ -171,7 +171,7 @@ export default function ChildSettings() {
             </div>
             <div className="flex items-center gap-3">
               <button type="button" className="rounded-3xl bg-slate-100 px-4 py-3 text-lg transition hover:bg-slate-200">🔔</button>
-              <button type="button" className="rounded-3xl bg-slate-100 px-4 py-3 text-lg transition hover:bg-slate-200">⚙️</button>
+              <button type="button" onClick={() => navigate('/settings')} className="rounded-3xl bg-slate-100 px-4 py-3 text-lg transition hover:bg-slate-200">⚙️</button>
             </div>
           </div>
         </header>
@@ -179,7 +179,7 @@ export default function ChildSettings() {
         <section className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-[32px] border border-slate-200 bg-emerald-50 p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <div className="rounded-3xl bg-white p-3 text-xl text-emerald-700">🪙</div>
+              <div className="rounded-3xl bg-white p-3 text-xl text-emerald-700">💰</div>
               <span className="text-sm font-semibold text-emerald-700">전체 누계</span>
             </div>
             <p className="mt-6 text-4xl font-bold text-slate-900">{totalPoints.toLocaleString('ko-KR')}P</p>
