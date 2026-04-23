@@ -103,6 +103,23 @@ const eveningExtraRoutines: RoutineItem[] = [
   { id: 'goodnight', label: '가족에게 잘 자요 인사하기', points: 10 },
 ];
 
+const ROUTINE_EMOJIS: Record<string, string> = {
+  wake:'⏰', bed:'🛌', wash:'🧼', brush:'🦷', dress:'👕', hair:'💇',
+  breakfast:'🥣', handwash:'👏', notebook:'📒', backpack:'🎒',
+  slippers:'👟', waterbottle:'💧', shoes:'👞', vitamin:'💊',
+  window:'🌅', sunlight:'☀️', stretch:'🤸', weather:'🌤️',
+  homework:'📝', supplies:'✅',
+  table:'🍽️', dishes:'🍳', trash:'🗑️', laundry:'👚', vacuum:'🧹',
+  plants:'🌿', sweep:'🧹', recycle:'♻️', fridge:'🧊', ingredients:'🥬',
+  side:'🥗', shopping:'🛒', mail:'📬', sibling:'👶', books:'📚',
+  washer:'💦', bathroom:'🚿', cooking:'🥘', foodwaste:'🗑️',
+  dinner:'🍽️', bath:'🛁', hairdry:'💨', pjs:'🌙', prep:'✅',
+  bedtime:'🌙', diary:'📔', readinglog:'📖', reflect:'💭', gratitude:'🙏',
+  reading:'📖', toys:'🧸', room:'🏠', desk:'🗂️', clothes:'👔', help:'🤝',
+  massage:'💆', petfood:'🐾', petwalk:'🦮', lights:'💡', curtains:'🏠',
+  goodnight:'👋', chairs:'🪑',
+};
+
 const ParentSettings = () => {
   const navigate = useNavigate();
   const profileRef = useRef<HTMLDivElement>(null);
@@ -113,7 +130,7 @@ const ParentSettings = () => {
 
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
-  const { children, loading: childrenLoading } = useChildren();
+  const { children, loading: childrenLoading, addChild } = useChildren();
   const {
     routines,
     toggleRoutine,
@@ -150,7 +167,11 @@ const ParentSettings = () => {
       else if (group === 'morningExtra') defaults = [...morningExtraRoutines];
       else if (group === 'eveningMust') defaults = [...eveningMustRoutines];
       else defaults = [...eveningExtraRoutines];
-      return defaults.map(r => ({ ...r, is_active: localOverrides[r.id] ?? true }));
+      return defaults.map(r => ({
+        ...r,
+        is_active: localOverrides[r.id] ?? true,
+        points: localPointOverrides[r.id] ?? r.points,
+      }));
     }
 
     return routines
@@ -162,7 +183,7 @@ const ParentSettings = () => {
       .map((routine) => ({
         id: routine.id,
         label: routine.name,
-        points: routine.points,
+        points: localPointOverrides[routine.id] ?? routine.points,
         is_active: routine.is_active,
       }));
   };
@@ -191,6 +212,12 @@ const ParentSettings = () => {
   const [pointsMessage, setPointsMessage] = useState<string | null>(null);
   const [childAvatarOverrides, setChildAvatarOverrides] = useState<Record<string, string>>({});
   const [editAvatarFor, setEditAvatarFor] = useState<string | null>(null);
+  const [localPointOverrides, setLocalPointOverrides] = useState<Record<string, number>>({});
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [newChildForm, setNewChildForm] = useState<{ name: string; gender: 'boy' | 'girl'; photo: string | null }>({
+    name: '', gender: 'boy', photo: null,
+  });
+  const [addChildLoading, setAddChildLoading] = useState(false);
 
   const executePointsAction = async () => {
     if (!pointsConfirm) return;
@@ -232,6 +259,34 @@ const ParentSettings = () => {
     if (avatar === 'girl') return { type: 'emoji', value: '👧' };
     if (avatar.startsWith('data:') || avatar.startsWith('http')) return { type: 'img', value: avatar };
     return { type: 'emoji', value: '🐻' };
+  };
+
+  const handleAddChild = async () => {
+    if (!newChildForm.name.trim()) return;
+    setAddChildLoading(true);
+    try {
+      const avatar = newChildForm.photo ?? newChildForm.gender;
+      await addChild(newChildForm.name.trim(), 8, avatar);
+      setNewChildForm({ name: '', gender: 'boy', photo: null });
+      setShowAddChild(false);
+    } catch (e) { console.error(e); }
+    setAddChildLoading(false);
+  };
+
+  const handleNewChildPhoto = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => setNewChildForm(prev => ({ ...prev, photo: e.target?.result as string }));
+    reader.readAsDataURL(file);
+  };
+
+  const handlePointsChange = (id: string, delta: number) => {
+    const baseItem = [
+      ...morningMustRoutines, ...morningExtraRoutines,
+      ...eveningMustRoutines, ...eveningExtraRoutines,
+    ].find(r => r.id === id);
+    const dbRoutine = routines.find(r => r.id === id);
+    const base = localPointOverrides[id] ?? dbRoutine?.points ?? baseItem?.points ?? 5;
+    setLocalPointOverrides(prev => ({ ...prev, [id]: Math.max(1, base + delta) }));
   };
 
   const handleToggle = (id: string) => {
@@ -289,7 +344,7 @@ const ParentSettings = () => {
           toInsert.map(r => ({
             child_id: selectedChildId,
             name: r.label,
-            points: r.points,
+            points: localPointOverrides[r.id] ?? r.points,
             type: r.type,
             category: r.category,
             is_active: true,
@@ -299,8 +354,13 @@ const ParentSettings = () => {
         setSaveMessage(`기본 루틴 ${toInsert.length}개가 저장되었습니다.`);
       } else {
         await saveRoutineState();
-        setSaveMessage('루틴 설정이 저장되었습니다.');
+        // 포인트 변경사항 저장
+        for (const [id, pts] of Object.entries(localPointOverrides)) {
+          await supabase.from('routines').update({ points: pts }).eq('id', id);
+        }
+        setSaveMessage('사부작거리 설정이 저장되었습니다.');
       }
+      setLocalPointOverrides({});
     } catch (error) {
       setSaveMessage('루틴 저장 중 오류가 발생했습니다.');
       console.error(error);
@@ -370,7 +430,7 @@ const ParentSettings = () => {
                 className="flex w-full items-center gap-3 rounded-3xl px-4 py-3 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <span className="inline-flex h-10 w-10 items-center justify-center rounded-3xl bg-slate-100 text-lg">📋</span>
-                루틴 편집
+                사부작거리
               </button>
               <button
                 type="button"
@@ -406,35 +466,28 @@ const ParentSettings = () => {
                   <p className="text-sm font-semibold text-teal-700">자녀 프로필 관리</p>
                   <h1 className="mt-2 text-3xl font-bold text-slate-900">자녀의 정보를 수정하거나 새 프로필을 추가할 수 있습니다.</h1>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/home')}
-                    className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    아이 홈 보기
-                  </button>
-                  <button className="inline-flex items-center justify-center rounded-full bg-teal-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-teal-800">
-                    새 자녀 추가
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/home')}
+                  className="inline-flex items-center justify-center rounded-full bg-slate-100 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  아이 홈 보기
+                </button>
               </div>
 
-              <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-                {childrenLoading ? (
-                  <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm text-center py-16 text-slate-500">
-                    자녀를 불러오는 중입니다.
-                  </div>
-                ) : children.length > 0 ? (
-                  children.map((child) => {
+              {childrenLoading ? (
+                <div className="mt-8 py-12 text-center text-sm text-slate-500">자녀를 불러오는 중입니다...</div>
+              ) : (
+                <div className={`mt-8 grid gap-5 ${children.length > 0 ? 'sm:grid-cols-2 xl:grid-cols-3' : ''}`}>
+                  {children.map((child) => {
                     const av = getAvatarDisplay(child);
                     return (
                       <div key={child.id} className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-                        <div className="relative grid place-items-center rounded-[28px] bg-slate-100 p-8 text-4xl">
+                        <div className="relative grid place-items-center rounded-[28px] bg-slate-100 p-8">
                           {av.type === 'img' ? (
-                            <img src={av.value} alt="avatar" className="h-16 w-16 rounded-full object-cover" />
+                            <img src={av.value} alt="avatar" className="h-20 w-20 rounded-full object-cover" />
                           ) : (
-                            <span className="text-5xl">{av.value}</span>
+                            <span className="text-6xl">{av.value}</span>
                           )}
                           <button
                             type="button"
@@ -449,62 +502,101 @@ const ParentSettings = () => {
                           <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 space-y-2">
                             <p className="text-xs font-semibold text-slate-500 text-center">캐릭터 선택</p>
                             <div className="flex gap-2 justify-center">
-                              <button
-                                type="button"
-                                onClick={() => handleAvatarSelect(child.id, 'boy')}
-                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400"
-                              >
+                              <button type="button" onClick={() => handleAvatarSelect(child.id, 'boy')}
+                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400">
                                 🧒<span className="text-xs text-slate-500">남자</span>
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => handleAvatarSelect(child.id, 'girl')}
-                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400"
-                              >
+                              <button type="button" onClick={() => handleAvatarSelect(child.id, 'girl')}
+                                className="flex flex-col items-center gap-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-2xl hover:border-teal-400">
                                 👧<span className="text-xs text-slate-500">여자</span>
                               </button>
                               <label className="flex flex-col items-center gap-1 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-3 text-2xl cursor-pointer hover:border-teal-400">
                                 📷<span className="text-xs text-slate-500">사진</span>
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handlePhotoUpload(child.id, file);
-                                  }}
-                                />
+                                <input type="file" accept="image/*" className="hidden"
+                                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhotoUpload(child.id, f); }} />
                               </label>
                             </div>
                           </div>
                         )}
 
-                        <div className="mt-4 space-y-2 text-center">
+                        <div className="mt-4 space-y-1 text-center">
                           <p className="text-xl font-semibold text-slate-900">{child.name}</p>
                           <p className="text-sm text-slate-500">{child.age}세 · 총 {child.total_points ?? 0}P</p>
                         </div>
                       </div>
                     );
-                  })
-                ) : (
-                  <div className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm text-center py-16 text-slate-500">
-                    등록된 자녀가 없습니다.
-                  </div>
-                )}
+                  })}
 
-                <button className="flex flex-col items-center justify-center rounded-[32px] border-dashed border-2 border-slate-300 bg-white p-8 text-center text-slate-500 transition hover:border-teal-300 hover:text-teal-700">
-                  <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">+</span>
-                  <p className="text-sm font-semibold">새 자녀 추가</p>
-                  <p className="mt-2 text-xs text-slate-400">새로운 자녀를 등록하고 루틴을 만들어주세요.</p>
-                </button>
-              </div>
+                  {showAddChild ? (
+                    <div className="rounded-[32px] border-2 border-teal-300 bg-teal-50 p-6 space-y-4">
+                      <p className="text-sm font-bold text-teal-700 text-center">새 자녀 추가</p>
+
+                      {/* 아바타 미리보기 */}
+                      <div className="grid place-items-center rounded-[24px] bg-white py-6">
+                        {newChildForm.photo ? (
+                          <img src={newChildForm.photo} alt="preview" className="h-20 w-20 rounded-full object-cover" />
+                        ) : (
+                          <span className="text-6xl">{newChildForm.gender === 'boy' ? '🧒' : '👧'}</span>
+                        )}
+                      </div>
+
+                      {/* 성별 선택 */}
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => setNewChildForm(p => ({ ...p, gender: 'boy', photo: null }))}
+                          className={`flex-1 rounded-2xl py-3 text-sm font-semibold transition ${newChildForm.gender === 'boy' && !newChildForm.photo ? 'bg-teal-700 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                          🧒 남자아이
+                        </button>
+                        <button type="button" onClick={() => setNewChildForm(p => ({ ...p, gender: 'girl', photo: null }))}
+                          className={`flex-1 rounded-2xl py-3 text-sm font-semibold transition ${newChildForm.gender === 'girl' && !newChildForm.photo ? 'bg-teal-700 text-white' : 'bg-white text-slate-700 border border-slate-200'}`}>
+                          👧 여자아이
+                        </button>
+                      </div>
+
+                      {/* 사진 업로드 */}
+                      <label className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-white py-3 text-sm text-slate-500 hover:border-teal-400">
+                        📷 사진 업로드
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleNewChildPhoto(f); }} />
+                      </label>
+
+                      {/* 이름 */}
+                      <input
+                        type="text"
+                        value={newChildForm.name}
+                        onChange={(e) => setNewChildForm(p => ({ ...p, name: e.target.value }))}
+                        placeholder="자녀 이름 입력"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400"
+                      />
+
+                      <div className="flex gap-2">
+                        <button type="button" onClick={handleAddChild}
+                          disabled={!newChildForm.name.trim() || addChildLoading}
+                          className="flex-1 rounded-full bg-teal-700 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50">
+                          {addChildLoading ? '추가 중...' : '추가하기'}
+                        </button>
+                        <button type="button" onClick={() => setShowAddChild(false)}
+                          className="flex-1 rounded-full bg-slate-200 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-300">
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => setShowAddChild(true)}
+                      className="flex flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-slate-300 bg-white p-8 text-center text-slate-500 transition hover:border-teal-300 hover:text-teal-700">
+                      <span className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-3xl">+</span>
+                      <p className="text-sm font-semibold">새 자녀 추가</p>
+                      <p className="mt-2 text-xs text-slate-400">새로운 자녀를 등록하고 루틴을 만들어주세요.</p>
+                    </button>
+                  )}
+                </div>
+              )}
             </section>
 
             <section ref={routineRef} className="rounded-[32px] bg-white p-8 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="text-sm font-semibold text-teal-700">루틴 편집</p>
-                  <h2 className="mt-2 text-2xl font-bold text-slate-900">자녀별 아침과 저녁 루틴을 관리하세요.</h2>
+                  <p className="text-sm font-semibold text-teal-700">사부작거리</p>
+                  <h2 className="mt-2 text-2xl font-bold text-slate-900">자녀의 아침 저녁 사부작거리를 관리하세요!</h2>
                 </div>
                 <div className="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1">
                   {childrenLoading ? (
@@ -529,26 +621,10 @@ const ParentSettings = () => {
               </div>
 
               <div className="mt-8 grid gap-6 xl:grid-cols-2">
-                <RoutineGroupCard
-                  title="☀️ 아침 — 필수 루틴"
-                  routines={getGroupRoutines('morningMust')}
-                  onToggle={handleToggle}
-                />
-                <RoutineGroupCard
-                  title="☀️ 아침 — 엑스트라"
-                  routines={getGroupRoutines('morningExtra')}
-                  onToggle={handleToggle}
-                />
-                <RoutineGroupCard
-                  title="🌙 저녁 — 필수 루틴"
-                  routines={getGroupRoutines('eveningMust')}
-                  onToggle={handleToggle}
-                />
-                <RoutineGroupCard
-                  title="🌙 저녁 — 엑스트라"
-                  routines={getGroupRoutines('eveningExtra')}
-                  onToggle={handleToggle}
-                />
+                <RoutineGroupCard title="☀️ 아침 사부작거리" routines={getGroupRoutines('morningMust')} onToggle={handleToggle} onPointsChange={handlePointsChange} />
+                <RoutineGroupCard title="☀️ 아침 용돈거리" routines={getGroupRoutines('morningExtra')} onToggle={handleToggle} onPointsChange={handlePointsChange} />
+                <RoutineGroupCard title="🌙 저녁 사부작거리" routines={getGroupRoutines('eveningMust')} onToggle={handleToggle} onPointsChange={handlePointsChange} />
+                <RoutineGroupCard title="🌙 저녁 용돈거리" routines={getGroupRoutines('eveningExtra')} onToggle={handleToggle} onPointsChange={handlePointsChange} />
               </div>
 
               <div className="mt-8 rounded-[28px] border border-slate-200 bg-slate-50 p-6">
@@ -708,23 +784,7 @@ const ParentSettings = () => {
                 </div>
               </div>
 
-              <div className="mt-8 grid gap-6 xl:grid-cols-2">
-                <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
-                  <h3 className="text-lg font-semibold text-slate-900">승인 알림</h3>
-                  <p className="mt-2 text-sm text-slate-500">아이 체크와 미승인 항목의 알림을 받습니다.</p>
-                  <div className="mt-6 space-y-4">
-                    <ToggleRow
-                      label="아이 체크 시 즉시 알림"
-                      enabled={notificationState.approveAlert}
-                      onToggle={() => toggleNotification('approveAlert')}
-                    />
-                    <ToggleRow
-                      label="미승인 항목 재알림"
-                      enabled={notificationState.remindUnapproved}
-                      onToggle={() => toggleNotification('remindUnapproved')}
-                    />
-                  </div>
-                </div>
+              <div className="mt-8">
                 <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
                   <h3 className="text-lg font-semibold text-slate-900">루틴 리마인더</h3>
                   <p className="mt-2 text-sm text-slate-500">아침, 저녁 알림 시간과 주간 리포트를 설정합니다.</p>
@@ -799,37 +859,37 @@ const ParentSettings = () => {
                     </div>
                   </dl>
                 </div>
-                <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-slate-900">부모 PIN 설정</h3>
-                        <p className="mt-2 text-sm text-slate-500">아이가 설정 화면에 접근하지 못하도록 보호합니다.</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setPinLocked((value) => !value)}
-                        className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                          pinLocked ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {pinLocked ? 'ON' : 'OFF'}
-                      </button>
+                <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 space-y-5">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900">부모 PIN 설정</h3>
+                    <p className="mt-1 text-sm text-slate-500">아이가 설정 화면에 접근하지 못하도록 보호합니다.</p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">PIN 잠금</p>
+                      <p className="text-xs text-slate-400 mt-0.5">숫자 4자리로 설정해요</p>
                     </div>
                     <button
                       type="button"
-                      onClick={handleLogout}
-                      className="rounded-full bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
+                      onClick={() => setPinLocked((v) => !v)}
+                      className={`inline-flex h-10 w-20 items-center rounded-full px-1 transition ${
+                        pinLocked ? 'bg-teal-700' : 'bg-slate-200'
+                      }`}
                     >
-                      로그아웃
+                      <span className={`h-8 w-8 rounded-full bg-white shadow-sm transition-transform ${pinLocked ? 'translate-x-10' : 'translate-x-1'}`} />
                     </button>
-                    {authError ? <p className="text-sm text-rose-600">{authError}</p> : null}
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-6 rounded-[28px] bg-sky-100 p-5 text-sm text-slate-700">
-                부모 PIN을 설정하면 아이가 설정 화면에 열 수 없어요. 숫자 4자리로 설정해요.
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full rounded-2xl border border-rose-200 bg-rose-50 py-3 text-sm font-semibold text-rose-600 transition hover:bg-rose-100"
+                  >
+                    로그아웃
+                  </button>
+                  {authError && <p className="text-sm text-rose-600">{authError}</p>}
+                </div>
               </div>
             </section>
 
@@ -858,37 +918,54 @@ function RoutineGroupCard({
   title,
   routines,
   onToggle,
+  onPointsChange,
 }: {
   title: string;
-  routines: Array<{
-    id: string;
-    label: string;
-    points: number;
-    is_active?: boolean;
-  }>;
+  routines: Array<{ id: string; label: string; points: number; is_active?: boolean }>;
   onToggle: (id: string) => void;
+  onPointsChange: (id: string, delta: number) => void;
 }) {
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-6 shadow-sm">
-      <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-      <div className="mt-6 max-h-96 overflow-y-auto space-y-3">
+    <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5 shadow-sm">
+      <h3 className="text-base font-bold text-slate-900">{title}</h3>
+      <div className="mt-4 grid grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
         {routines.map((item) => {
           const enabled = item.is_active ?? true;
+          const emoji = ROUTINE_EMOJIS[item.id] ?? '✅';
           return (
-            <div key={item.id} className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 shadow-sm">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{item.label}</p>
-                <p className="text-xs text-slate-500">{item.points}P</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onToggle(item.id)}
-                className={`inline-flex h-8 w-16 items-center rounded-full px-1 transition ml-3 ${
-                  enabled ? 'bg-teal-700' : 'bg-slate-200'
-                }`}
+            <div
+              key={item.id}
+              onClick={() => onToggle(item.id)}
+              className={`flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 p-3 text-center transition select-none ${
+                enabled
+                  ? 'border-teal-300 bg-white shadow-sm'
+                  : 'border-slate-200 bg-slate-100 opacity-50'
+              }`}
+            >
+              <span className="text-2xl">{emoji}</span>
+              <p className="text-xs font-medium leading-tight text-slate-800 line-clamp-2">{item.label}</p>
+              <div
+                className="flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
               >
-                <span className={`h-6 w-6 rounded-full bg-white shadow-sm transition ${enabled ? 'translate-x-8' : 'translate-x-1'}`} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onPointsChange(item.id, -1)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-300"
+                >
+                  −
+                </button>
+                <span className="min-w-[2.5rem] text-center text-xs font-bold text-teal-700">
+                  {item.points}P
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onPointsChange(item.id, 1)}
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-300"
+                >
+                  +
+                </button>
+              </div>
             </div>
           );
         })}
