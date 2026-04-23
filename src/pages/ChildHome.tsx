@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChildren } from '../hooks/useChildren';
+import AdBanner from '../components/AdBanner';
 
 const ChildHome = () => {
   const navigate = useNavigate();
@@ -39,13 +40,7 @@ const ChildHome = () => {
           <p className="mt-3 text-sm text-slate-500">오늘의 루틴을 체크하고 재미있게 시작해요.</p>
         </section>
 
-        <div className="flex items-center justify-between rounded-[20px] bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-100 px-5 py-3">
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">AD</p>
-            <p className="text-sm text-slate-500">광고 영역입니다</p>
-          </div>
-          <span className="rounded-full border border-yellow-200 bg-white px-2 py-1 text-[10px] text-slate-400">광고</span>
-        </div>
+        <AdBanner slot={import.meta.env.VITE_ADSENSE_SLOT_TOP} />
 
         <div className="flex flex-col gap-5 md:flex-row">
           <button
@@ -89,13 +84,7 @@ const ChildHome = () => {
           </button>
         </div>
 
-        <div className="flex items-center justify-between rounded-[20px] bg-gradient-to-r from-teal-50 to-sky-50 border border-teal-100 px-5 py-3">
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">AD</p>
-            <p className="text-sm text-slate-500">광고 영역입니다</p>
-          </div>
-          <span className="rounded-full border border-teal-200 bg-white px-2 py-1 text-[10px] text-slate-400">광고</span>
-        </div>
+        <AdBanner slot={import.meta.env.VITE_ADSENSE_SLOT_BOTTOM} />
       </div>
     </div>
   );
