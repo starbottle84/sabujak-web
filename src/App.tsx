@@ -6,11 +6,13 @@ import { supabase } from './lib/supabase';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ChildHome from './pages/ChildHome';
+import ChildSettings from './pages/ChildSettings';
 import RoutineDetail from './pages/RoutineDetail';
 import ParentSettings from './pages/ParentSettings';
 import Statistics from './pages/Statistics';
 import Points from './pages/Points';
 import BottomNav from './components/BottomNav';
+import ResetPassword from './pages/ResetPassword';
 
 function App() {
   return (
@@ -22,18 +24,20 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  const hideBottomNav = location.pathname === '/' || location.pathname === '/signup';
+  const hideBottomNav = location.pathname === '/' || location.pathname === '/signup' || location.pathname === '/reset-password';
 
   return (
     <>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/home" element={<ProtectedRoute><ChildHome /></ProtectedRoute>} />
         <Route path="/routine/:type" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
         <Route path="/points" element={<ProtectedRoute><Points /></ProtectedRoute>} />
         <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><ParentSettings /></ProtectedRoute>} />
+        <Route path="/child-settings" element={<ProtectedRoute><ChildSettings /></ProtectedRoute>} />
         <Route path="/parent-settings" element={<Navigate to="/settings" replace />} />
         <Route path="/statistics" element={<Navigate to="/stats" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />

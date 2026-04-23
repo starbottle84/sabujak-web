@@ -10,6 +10,12 @@ export default function Login() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+
   const fromPath = (location.state as { from?: string } | null)?.from || '/home';
 
   const handleLogin = async () => {
@@ -30,6 +36,104 @@ export default function Login() {
 
     navigate(fromPath, { replace: true });
   };
+
+  const handleForgotPassword = async () => {
+    setForgotError(null);
+    if (!forgotEmail) {
+      setForgotError('이메일을 입력해주세요.');
+      return;
+    }
+
+    setForgotLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setForgotLoading(false);
+
+    if (error) {
+      setForgotError(error.message);
+      return;
+    }
+
+    setForgotSent(true);
+  };
+
+  const handleBackToLogin = () => {
+    setForgotMode(false);
+    setForgotEmail('');
+    setForgotSent(false);
+    setForgotError(null);
+  };
+
+  if (forgotMode) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-md p-8 w-80">
+
+          <button
+            type="button"
+            onClick={handleBackToLogin}
+            className="text-gray-400 text-sm mb-4 flex items-center gap-1"
+          >
+            ← 로그인으로 돌아가기
+          </button>
+
+          <h2 className="text-xl font-bold text-teal-700 text-center mb-1">비밀번호 찾기</h2>
+          <p className="text-xs text-gray-400 text-center mb-6">
+            가입한 이메일로 재설정 링크를 보내드려요
+          </p>
+
+          {forgotSent ? (
+            <div className="text-center">
+              <div className="text-4xl mb-4">📬</div>
+              <p className="text-sm text-gray-700 font-medium mb-2">이메일을 확인해주세요!</p>
+              <p className="text-xs text-gray-400 mb-6">
+                <span className="font-medium text-teal-600">{forgotEmail}</span>으로<br />
+                비밀번호 재설정 링크를 보냈어요.
+              </p>
+              <button
+                type="button"
+                onClick={handleBackToLogin}
+                className="w-full bg-teal-700 text-white rounded-full py-2.5 text-sm font-medium"
+              >
+                로그인으로 돌아가기
+              </button>
+            </div>
+          ) : (
+            <>
+              {forgotError && (
+                <div className="mb-4 rounded-2xl bg-rose-100 px-4 py-3 text-sm text-rose-700">
+                  {forgotError}
+                </div>
+              )}
+
+              <div className="relative mb-4">
+                <span className="absolute left-3 top-2.5 text-gray-400 text-sm">@</span>
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleForgotPassword()}
+                  placeholder="가입한 이메일 주소"
+                  className="w-full bg-gray-100 rounded-full py-2.5 pl-8 pr-4 text-sm outline-none"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotLoading}
+                className="w-full bg-teal-700 text-white rounded-full py-2.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {forgotLoading ? '전송 중...' : '재설정 링크 보내기'}
+              </button>
+            </>
+          )}
+
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -63,13 +167,20 @@ export default function Login() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
             placeholder="••••••••"
             className="w-full bg-gray-100 rounded-full py-2.5 pl-8 pr-4 text-sm outline-none"
           />
         </div>
 
         <div className="text-right mb-4">
-          <button className="text-xs text-teal-600">비밀번호 찾기</button>
+          <button
+            type="button"
+            onClick={() => { setForgotMode(true); setForgotEmail(email); }}
+            className="text-xs text-teal-600"
+          >
+            비밀번호 찾기
+          </button>
         </div>
 
         <button
