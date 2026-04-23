@@ -126,12 +126,30 @@ const ParentSettings = () => {
     }
   }, [children, selectedChildId]);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        const d = new Date(data.user.created_at);
+        setUserInfo({
+          email: data.user.email ?? '',
+          createdAt: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+        });
+      }
+    });
+    const stored = localStorage.getItem('sabujakk-notifications');
+    if (stored) {
+      try { setNotificationState(JSON.parse(stored)); } catch {}
+    }
+  }, []);
+
   const getGroupRoutines = (group: RoutineGroup) => {
     if (!routines.length) {
-      if (group === 'morningMust') return [...morningMustRoutines];
-      if (group === 'morningExtra') return [...morningExtraRoutines];
-      if (group === 'eveningMust') return [...eveningMustRoutines];
-      return [...eveningExtraRoutines];
+      let defaults: RoutineItem[];
+      if (group === 'morningMust') defaults = [...morningMustRoutines];
+      else if (group === 'morningExtra') defaults = [...morningExtraRoutines];
+      else if (group === 'eveningMust') defaults = [...eveningMustRoutines];
+      else defaults = [...eveningExtraRoutines];
+      return defaults.map(r => ({ ...r, is_active: localOverrides[r.id] ?? true }));
     }
 
     return routines
@@ -164,6 +182,17 @@ const ParentSettings = () => {
   });
   const [pinLocked, setPinLocked] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<{ email: string; createdAt: string } | null>(null);
+  const [localOverrides, setLocalOverrides] = useState<Record<string, boolean>>({});
+  const [notifSaved, setNotifSaved] = useState(false);
+
+  const handleToggle = (id: string) => {
+    if (routines.length > 0) {
+      toggleRoutine(id);
+    } else {
+      setLocalOverrides(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
+    }
+  };
 
   const handleLogout = async () => {
     setAuthError(null);
@@ -195,12 +224,45 @@ const ParentSettings = () => {
 
   const handleSaveRoutines = async () => {
     try {
-      await saveRoutineState();
-      setSaveMessage('루틴 설정이 저장되었습니다.');
+      if (!selectedChildId) {
+        setSaveMessage('자녀를 먼저 선택해주세요.');
+        return;
+      }
+      if (routines.length === 0) {
+        // DB에 루틴 없음 → 기본 루틴을 한 번에 삽입
+        const allDefaults = [
+          ...morningMustRoutines.map(r => ({ ...r, type: 'morning', category: 'must' })),
+          ...morningExtraRoutines.map(r => ({ ...r, type: 'morning', category: 'extra' })),
+          ...eveningMustRoutines.map(r => ({ ...r, type: 'evening', category: 'must' })),
+          ...eveningExtraRoutines.map(r => ({ ...r, type: 'evening', category: 'extra' })),
+        ];
+        const toInsert = allDefaults.filter(r => localOverrides[r.id] ?? true);
+        const { error } = await supabase.from('routines').insert(
+          toInsert.map(r => ({
+            child_id: selectedChildId,
+            name: r.label,
+            points: r.points,
+            type: r.type,
+            category: r.category,
+            is_active: true,
+          }))
+        );
+        if (error) throw error;
+        setSaveMessage(`기본 루틴 ${toInsert.length}개가 저장되었습니다.`);
+      } else {
+        await saveRoutineState();
+        setSaveMessage('루틴 설정이 저장되었습니다.');
+      }
     } catch (error) {
       setSaveMessage('루틴 저장 중 오류가 발생했습니다.');
       console.error(error);
     }
+  };
+
+  const handleSaveNotifications = () => {
+    localStorage.setItem('sabujakk-notifications', JSON.stringify(notificationState));
+    setNotifSaved(true);
+    setTimeout(() => setNotifSaved(false), 2000);
   };
 
   const toggleNotification = (key: keyof typeof notificationState) => {
@@ -279,7 +341,7 @@ const ParentSettings = () => {
           </aside>
 
           <main className="space-y-6">
-            <section className="rounded-[32px] bg-white p-8 shadow-sm">
+            <section ref={profileRef} className="rounded-[32px] bg-white p-8 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                   <p className="text-sm font-semibold text-teal-700">자녀 프로필 관리</p>
@@ -363,22 +425,22 @@ const ParentSettings = () => {
                 <RoutineGroupCard
                   title="☀️ 아침 — 필수 루틴"
                   routines={getGroupRoutines('morningMust')}
-                  onToggle={toggleRoutine}
+                  onToggle={handleToggle}
                 />
                 <RoutineGroupCard
                   title="☀️ 아침 — 엑스트라"
                   routines={getGroupRoutines('morningExtra')}
-                  onToggle={toggleRoutine}
+                  onToggle={handleToggle}
                 />
                 <RoutineGroupCard
                   title="🌙 저녁 — 필수 루틴"
                   routines={getGroupRoutines('eveningMust')}
-                  onToggle={toggleRoutine}
+                  onToggle={handleToggle}
                 />
                 <RoutineGroupCard
                   title="🌙 저녁 — 엑스트라"
                   routines={getGroupRoutines('eveningExtra')}
-                  onToggle={toggleRoutine}
+                  onToggle={handleToggle}
                 />
               </div>
 
@@ -513,8 +575,12 @@ const ParentSettings = () => {
               </div>
 
               <div className="mt-6 flex justify-end">
-                <button className="rounded-full bg-teal-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-800">
-                  저장하기
+                <button
+                  type="button"
+                  onClick={handleSaveNotifications}
+                  className="rounded-full bg-teal-700 px-6 py-3 text-sm font-semibold text-white transition hover:bg-teal-800"
+                >
+                  {notifSaved ? '저장됨 ✓' : '저장하기'}
                 </button>
               </div>
             </section>
@@ -532,16 +598,12 @@ const ParentSettings = () => {
                   <h3 className="text-lg font-semibold text-slate-900">계정 정보</h3>
                   <dl className="mt-4 grid gap-4 text-sm text-slate-700">
                     <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3">
-                      <span>이름</span>
-                      <span className="font-semibold text-slate-900">김지우 부모님</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3">
                       <span>이메일</span>
-                      <span className="font-semibold text-slate-900">parent@example.com</span>
+                      <span className="font-semibold text-slate-900">{userInfo?.email ?? '불러오는 중...'}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3">
                       <span>가입일</span>
-                      <span className="font-semibold text-slate-900">2026-03-15</span>
+                      <span className="font-semibold text-slate-900">{userInfo?.createdAt ?? '-'}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-2xl bg-white px-4 py-3">
                       <span>플랜</span>

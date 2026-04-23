@@ -1,9 +1,15 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isParentMode = pathname.startsWith('/stats') || pathname.startsWith('/settings');
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   const menuItems = isParentMode
     ? [
@@ -35,6 +41,16 @@ const BottomNav = () => {
             </button>
           );
         })}
+        {isParentMode && (
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="inline-flex flex-col items-center gap-1 rounded-3xl px-3 py-2 text-xs font-semibold text-rose-400 transition hover:text-rose-600"
+          >
+            <span>🚪</span>
+            <span>로그아웃</span>
+          </button>
+        )}
       </div>
     </nav>
   );

@@ -53,28 +53,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const [sessionActive, setSessionActive] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (!mounted) return;
+    // localStorage에서 초기 세션 즉시 확인
+    supabase.auth.getSession().then(({ data }) => {
       setSessionActive(!!data.session);
       setChecking(false);
-    };
+    });
 
-    checkSession();
-    return () => {
-      mounted = false;
-    };
+    // 토큰 갱신·로그아웃 등 인증 상태 변화 실시간 반영
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionActive(!!session);
+      setChecking(false);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  if (checking) {
-    return null;
-  }
-
-  if (!sessionActive) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
-  }
-
+  if (checking) return null;
+  if (!sessionActive) return <Navigate to="/" replace state={{ from: location.pathname }} />;
   return children;
 }
 
