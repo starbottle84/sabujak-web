@@ -25,7 +25,7 @@ const ChildHome = () => {
           </div>
           <button
             type="button"
-            onClick={() => navigate('/settings')}
+            onClick={() => navigate('/child-settings')}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-lg text-slate-700 transition hover:bg-gray-300"
           >
             ⚙️
