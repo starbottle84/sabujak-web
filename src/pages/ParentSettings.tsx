@@ -214,9 +214,13 @@ const ParentSettings = () => {
   const [editAvatarFor, setEditAvatarFor] = useState<string | null>(null);
   const [localPointOverrides, setLocalPointOverrides] = useState<Record<string, number>>({});
   const [showAddChild, setShowAddChild] = useState(false);
-  const [newChildForm, setNewChildForm] = useState<{ name: string; gender: 'boy' | 'girl'; photo: string | null }>({
-    name: '', gender: 'boy', photo: null,
-  });
+  const [newChildForm, setNewChildForm] = useState<{
+    lastName: string;
+    firstName: string;
+    gender: 'boy' | 'girl';
+    photo: string | null;
+    birthday: string;
+  }>({ lastName: '', firstName: '', gender: 'boy', photo: null, birthday: '' });
   const [addChildLoading, setAddChildLoading] = useState(false);
 
   const executePointsAction = async () => {
@@ -262,12 +266,13 @@ const ParentSettings = () => {
   };
 
   const handleAddChild = async () => {
-    if (!newChildForm.name.trim()) return;
+    if (!newChildForm.firstName.trim()) return;
     setAddChildLoading(true);
     try {
+      const fullName = `${newChildForm.lastName}${newChildForm.firstName}`.trim();
       const avatar = newChildForm.photo ?? newChildForm.gender;
-      await addChild(newChildForm.name.trim(), 8, avatar);
-      setNewChildForm({ name: '', gender: 'boy', photo: null });
+      await addChild(fullName, 8, avatar, newChildForm.birthday || null);
+      setNewChildForm({ lastName: '', firstName: '', gender: 'boy', photo: null, birthday: '' });
       setShowAddChild(false);
     } catch (e) { console.error(e); }
     setAddChildLoading(false);
@@ -521,7 +526,15 @@ const ParentSettings = () => {
 
                         <div className="mt-4 space-y-1 text-center">
                           <p className="text-xl font-semibold text-slate-900">{child.name}</p>
-                          <p className="text-sm text-slate-500">{child.age}세 · 총 {child.total_points ?? 0}P</p>
+                          {child.birthday && (
+                            <p className="text-xs text-teal-600 font-medium">
+                              {(() => {
+                                const days = Math.floor((Date.now() - new Date(child.birthday!).getTime()) / 86400000);
+                                return `태어난 지 ${days.toLocaleString('ko-KR')}일`;
+                              })()}
+                            </p>
+                          )}
+                          <p className="text-sm text-slate-500">총 {child.total_points ?? 0}P</p>
                         </div>
                       </div>
                     );
@@ -559,18 +572,38 @@ const ParentSettings = () => {
                           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleNewChildPhoto(f); }} />
                       </label>
 
-                      {/* 이름 */}
-                      <input
-                        type="text"
-                        value={newChildForm.name}
-                        onChange={(e) => setNewChildForm(p => ({ ...p, name: e.target.value }))}
-                        placeholder="자녀 이름 입력"
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400"
-                      />
+                      {/* 성 + 이름 */}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newChildForm.lastName}
+                          onChange={(e) => setNewChildForm(p => ({ ...p, lastName: e.target.value }))}
+                          placeholder="성"
+                          className="w-20 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400"
+                        />
+                        <input
+                          type="text"
+                          value={newChildForm.firstName}
+                          onChange={(e) => setNewChildForm(p => ({ ...p, firstName: e.target.value }))}
+                          placeholder="이름"
+                          className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400"
+                        />
+                      </div>
+
+                      {/* 생년월일 */}
+                      <div className="space-y-1">
+                        <label className="block text-xs font-semibold text-slate-500">생년월일</label>
+                        <input
+                          type="date"
+                          value={newChildForm.birthday}
+                          onChange={(e) => setNewChildForm(p => ({ ...p, birthday: e.target.value }))}
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-teal-400"
+                        />
+                      </div>
 
                       <div className="flex gap-2">
                         <button type="button" onClick={handleAddChild}
-                          disabled={!newChildForm.name.trim() || addChildLoading}
+                          disabled={!newChildForm.firstName.trim() || addChildLoading}
                           className="flex-1 rounded-full bg-teal-700 py-3 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:opacity-50">
                           {addChildLoading ? '추가 중...' : '추가하기'}
                         </button>

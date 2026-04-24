@@ -29,23 +29,25 @@ export function useRoutineLogs(childId: string | null) {
 
       setLoading(true);
       const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-      const nextDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
       const { data, error } = await supabase
         .from('routine_logs')
         .select('*')
         .eq('child_id', childId)
-        .gte('created_at', startOfDay)
-        .lt('created_at', nextDay)
-        .order('created_at', { ascending: true });
+        .order('id', { ascending: false });
 
       if (!mounted) return;
       if (error) {
         console.error('Failed to load routine logs:', error.message);
         setLogs([]);
       } else {
-        setLogs(data ?? []);
+        // created_at 컬럼 없는 경우 오늘 로그 전체 표시, 있으면 오늘 날짜로 필터
+        const filtered = (data ?? []).filter((log) => {
+          if (!log.created_at) return true;
+          return new Date(log.created_at) >= startOfDay;
+        });
+        setLogs(filtered);
       }
       setLoading(false);
     };

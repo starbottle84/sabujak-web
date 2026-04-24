@@ -10,7 +10,7 @@ type RoutineLog = {
   points: number;
   approved: boolean;
   approved_at: string | null;
-  created_at: string;
+  created_at?: string | null;
 };
 
 const ROUTINE_LABELS: Record<string, { label: string; icon: string }> = {
@@ -34,8 +34,10 @@ const tabs = [
 
 type TabKey = (typeof tabs)[number]['id'];
 
-function formatRelativeDate(timestamp: string) {
+function formatRelativeDate(timestamp?: string | null) {
+  if (!timestamp) return '날짜 없음';
   const date = new Date(timestamp);
+  if (isNaN(date.getTime())) return '날짜 없음';
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
@@ -101,7 +103,7 @@ export default function ChildSettings() {
         .from('routine_logs')
         .select('*')
         .eq('child_id', childId)
-        .order('created_at', { ascending: false });
+        .order('id', { ascending: false });
 
       if (!mounted) return;
       if (error) {
@@ -128,12 +130,14 @@ export default function ChildSettings() {
   const totalPoints = child?.total_points ?? logs.reduce((sum, item) => sum + item.points, 0);
   const virtualMoney = totalPoints * 10;
 
-  const todayLogs = logs.filter((item) => new Date(item.created_at) >= startOfToday);
-  const weekLogs = logs.filter((item) => new Date(item.created_at) >= startOfWeek);
-  const currentMonthLogs = logs.filter((item) => new Date(item.created_at) >= startOfMonth);
-  const previousMonthLogs = logs.filter(
-    (item) => new Date(item.created_at) >= startOfPrevMonth && new Date(item.created_at) < startOfMonth
-  );
+  const getLogDate = (item: RoutineLog) => item.created_at ? new Date(item.created_at) : null;
+  const todayLogs = logs.filter((item) => { const d = getLogDate(item); return d ? d >= startOfToday : false; });
+  const weekLogs = logs.filter((item) => { const d = getLogDate(item); return d ? d >= startOfWeek : false; });
+  const currentMonthLogs = logs.filter((item) => { const d = getLogDate(item); return d ? d >= startOfMonth : false; });
+  const previousMonthLogs = logs.filter((item) => {
+    const d = getLogDate(item);
+    return d ? d >= startOfPrevMonth && d < startOfMonth : false;
+  });
 
   const weekPoints = weekLogs.reduce((sum, item) => sum + item.points, 0);
   const monthDiffMoney =
@@ -265,7 +269,7 @@ export default function ChildSettings() {
           )}
         </section>
 
-        <section className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-[32px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-3 rounded-full bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
               <span className="text-lg">✨</span>
@@ -278,9 +282,6 @@ export default function ChildSettings() {
             >
               오늘의 루틴 보러가기
             </button>
-          </div>
-          <div className="absolute bottom-5 right-5 hidden h-28 w-28 items-center justify-center rounded-full bg-slate-100 text-4xl shadow-xl sm:flex">
-            🐰
           </div>
         </section>
       </div>

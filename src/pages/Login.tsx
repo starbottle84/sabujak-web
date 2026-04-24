@@ -108,7 +108,11 @@ export default function Login() {
               )}
 
               <div className="relative mb-4">
-                <span className="absolute left-3 top-2.5 text-gray-400 text-sm">@</span>
+                <span className="absolute left-3 top-2.5 text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </span>
                 <input
                   type="email"
                   value={forgotEmail}
@@ -151,7 +155,11 @@ export default function Login() {
         ) : null}
 
         <div className="relative mb-3">
-          <span className="absolute left-3 top-2.5 text-gray-400 text-sm">@</span>
+          <span className="absolute left-3 top-2.5 text-gray-400">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+          </span>
           <input
             type="email"
             value={email}
@@ -198,12 +206,28 @@ export default function Login() {
           <div className="flex-1 h-px bg-gray-200"></div>
         </div>
 
-        <div className="flex gap-3 mb-4">
-          <button className="flex-1 border border-gray-300 rounded-full py-2 text-sm">
-            G Google
+        <div className="flex flex-col gap-2 mb-4">
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-4 w-4 flex-shrink-0">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            Google로 계속하기
           </button>
-          <button className="flex-1 bg-yellow-300 rounded-full py-2 text-sm font-medium">
-            Kakao
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-3 rounded-full py-2.5 text-sm font-medium text-[#3C1E1E] transition hover:brightness-95"
+            style={{ backgroundColor: '#FEE500' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0" fill="#3C1E1E">
+              <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.605 1.545 4.9 3.9 6.268-.17.633-.615 2.298-.705 2.655-.11.44.162.433.338.315.138-.093 2.193-1.48 3.081-2.082.45.062.912.094 1.386.094 5.523 0 10-3.477 10-7.75C22 6.477 17.523 3 12 3z"/>
+            </svg>
+            카카오로 계속하기
           </button>
         </div>
 
@@ -214,7 +238,7 @@ export default function Login() {
           </button>
         </p>
 
-        <p className="text-xs text-center text-gray-300 mt-3">
+        <p className="text-[10px] text-center text-gray-500 mt-6 tracking-wide">
           🔒 SECURE DATA · 👪 PARENT APPROVED
         </p>
 

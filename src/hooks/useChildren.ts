@@ -8,6 +8,7 @@ type Child = {
   age: number;
   avatar?: string | null;
   total_points?: number;
+  birthday?: string | null;
 };
 
 export function useChildren() {
@@ -65,7 +66,7 @@ export function useChildren() {
     };
   }, []);
 
-  const addChild = async (name: string, age: number, avatar?: string | null) => {
+  const addChild = async (name: string, age: number, avatar?: string | null, birthday?: string | null) => {
     const session = await supabase.auth.getSession();
     const user = session?.data?.session?.user;
     if (!user) {
@@ -79,6 +80,7 @@ export function useChildren() {
         name,
         age,
         avatar,
+        birthday: birthday ?? null,
         total_points: 0,
       })
       .select('*')
