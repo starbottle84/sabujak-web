@@ -30,23 +30,26 @@ function AppRoutes() {
 
   return (
     <>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
-        <Route path="/home" element={<ProtectedRoute><ChildHome /></ProtectedRoute>} />
-        <Route path="/routine/:type" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
-        <Route path="/points" element={<ProtectedRoute><Points /></ProtectedRoute>} />
-        <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><ParentSettings /></ProtectedRoute>} />
-        <Route path="/child-settings" element={<ProtectedRoute><ChildSettings /></ProtectedRoute>} />
-        <Route path="/parent-settings" element={<Navigate to="/settings" replace />} />
-        <Route path="/statistics" element={<Navigate to="/stats" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
       {!hideBottomNav && <BottomNav />}
+      {/* 데스크톱: 상단 nav 높이(56px)만큼 상단 여백 / 모바일: 그대로 */}
+      <div className={!hideBottomNav ? 'lg:pt-14' : ''}>
+        <Routes>
+          <Route path="/" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/home" element={<ProtectedRoute><ChildHome /></ProtectedRoute>} />
+          <Route path="/routine/:type" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
+          <Route path="/points" element={<ProtectedRoute><Points /></ProtectedRoute>} />
+          <Route path="/stats" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><ParentSettings /></ProtectedRoute>} />
+          <Route path="/child-settings" element={<ProtectedRoute><ChildSettings /></ProtectedRoute>} />
+          <Route path="/parent-settings" element={<Navigate to="/settings" replace />} />
+          <Route path="/statistics" element={<Navigate to="/stats" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
     </>
   );
 }

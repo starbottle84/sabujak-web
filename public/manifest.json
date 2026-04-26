@@ -1,0 +1,31 @@
+{
+  "name": "사부작 - 아이 루틴 & 리워드",
+  "short_name": "사부작",
+  "description": "어린이 루틴 습관 형성 + 가상 용돈 리워드 앱",
+  "theme_color": "#0f766e",
+  "background_color": "#f8fafc",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/home",
+  "lang": "ko",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/icons/icon-512.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/maskable-512.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "아침 할일",
+      "url": "/routine/morning",
+      "description": "아침 할일 체크하기"
+    },
+    {
+      "name": "저녁 할일",
+      "url": "/routine/evening",
+      "description": "저녁 할일 체크하기"
+    }
+  ]
+}
