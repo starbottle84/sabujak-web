@@ -173,7 +173,6 @@ const ParentSettings = () => {
       (r) => r.type === (isMorning ? 'morning' : 'evening') && r.category === category
     );
 
-    // DB에 해당 그룹 루틴이 없으면 하드코딩 기본값 사용
     if (!dbFiltered.length) {
       return defaults.map(r => ({
         ...r,
@@ -182,12 +181,25 @@ const ParentSettings = () => {
       }));
     }
 
-    return dbFiltered.map((routine) => ({
-      id: routine.id,
-      label: routine.name,
-      points: localPointOverrides[routine.id] ?? routine.points,
-      is_active: routine.is_active,
-    }));
+    // DB에 있는 항목 + DB에 없는 기본값 항목 병합
+    const dbNames = new Set(dbFiltered.map(r => r.name));
+    const missingDefaults = defaults
+      .filter(r => !dbNames.has(r.label))
+      .map(r => ({
+        ...r,
+        is_active: localOverrides[r.id] ?? true,
+        points: localPointOverrides[r.id] ?? r.points,
+      }));
+
+    return [
+      ...dbFiltered.map((routine) => ({
+        id: routine.id,
+        label: routine.name,
+        points: localPointOverrides[routine.id] ?? routine.points,
+        is_active: routine.is_active,
+      })),
+      ...missingDefaults,
+    ];
   };
 
   // Add custom routine form state
@@ -338,15 +350,21 @@ const ParentSettings = () => {
         setSaveMessage('자녀를 먼저 선택해주세요.');
         return;
       }
-      if (routines.length === 0) {
-        // DB에 루틴 없음 → 기본 루틴을 한 번에 삽입
-        const allDefaults = [
-          ...morningMustRoutines.map(r => ({ ...r, type: 'morning', category: 'must' })),
-          ...morningExtraRoutines.map(r => ({ ...r, type: 'morning', category: 'extra' })),
-          ...eveningMustRoutines.map(r => ({ ...r, type: 'evening', category: 'must' })),
-          ...eveningExtraRoutines.map(r => ({ ...r, type: 'evening', category: 'extra' })),
-        ];
-        const toInsert = allDefaults.filter(r => localOverrides[r.id] ?? true);
+
+      const allDefaults = [
+        ...morningMustRoutines.map(r => ({ ...r, type: 'morning', category: 'must' })),
+        ...morningExtraRoutines.map(r => ({ ...r, type: 'morning', category: 'extra' })),
+        ...eveningMustRoutines.map(r => ({ ...r, type: 'evening', category: 'must' })),
+        ...eveningExtraRoutines.map(r => ({ ...r, type: 'evening', category: 'extra' })),
+      ];
+
+      // DB에 없는 기본 루틴 찾아서 추가 (부분 오염 복구 포함)
+      const existingKeys = new Set(routines.map(r => `${r.name}-${r.type}-${r.category}`));
+      const toInsert = allDefaults.filter(r =>
+        !existingKeys.has(`${r.label}-${r.type}-${r.category}`) && (localOverrides[r.id] ?? true)
+      );
+
+      if (toInsert.length > 0) {
         const { error } = await supabase.from('routines').insert(
           toInsert.map(r => ({
             child_id: selectedChildId,
@@ -358,15 +376,19 @@ const ParentSettings = () => {
           }))
         );
         if (error) throw error;
-        setSaveMessage(`기본 루틴 ${toInsert.length}개가 저장되었습니다.`);
-      } else {
+      }
+
+      if (routines.length > 0) {
         await saveRoutineState();
-        // 포인트 변경사항 저장
         for (const [id, pts] of Object.entries(localPointOverrides)) {
           await supabase.from('routines').update({ points: pts }).eq('id', id);
         }
-        setSaveMessage('사부작거리 설정이 저장되었습니다.');
       }
+
+      setSaveMessage(toInsert.length > 0
+        ? `저장 완료! (${toInsert.length}개 항목 추가됨)`
+        : '사부작거리 설정이 저장되었습니다.'
+      );
       setLocalPointOverrides({});
     } catch (error) {
       setSaveMessage('루틴 저장 중 오류가 발생했습니다.');

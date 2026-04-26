@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useChildren } from '../hooks/useChildren';
 import { useRoutines } from '../hooks/useRoutines';
@@ -84,21 +84,25 @@ const RoutineDetail = () => {
   const { routines } = useRoutines(child?.id ?? null);
   const { logs, checkRoutine } = useRoutineLogs(child?.id ?? null);
 
-  const dbMustDo = routines.filter((r) => r.type === routineType && r.category === 'must');
-  const dbExtra = routines.filter((r) => r.type === routineType && r.category === 'extra');
+  // 화면 표시는 항상 하드코딩 목록 — DB 부분 오염과 무관하게 일정한 목록 보장
+  const mustDoItems: RoutineItem[] = isMorning ? morningMustDo : eveningMustDo;
+  const extraItems: RoutineItem[] = isMorning ? morningExtra : eveningExtra;
 
-  const mustDoItems: RoutineItem[] = dbMustDo.length > 0
-    ? dbMustDo
-    : isMorning ? morningMustDo : eveningMustDo;
-
-  const extraItems: RoutineItem[] = dbExtra.length > 0
-    ? dbExtra
-    : isMorning ? morningExtra : eveningExtra;
+  // 새로고침 후에도 체크 상태 유지: DB UUID → 하드코딩 id 역변환
+  const routineUUIDtoId = useMemo(() => {
+    const map = new Map<string, string>();
+    const allItems = [...morningMustDo, ...morningExtra, ...eveningMustDo, ...eveningExtra];
+    routines.forEach((r) => {
+      const matched = allItems.find((item) => item.label === r.name);
+      if (matched) map.set(r.id, matched.id);
+    });
+    return map;
+  }, [routines]);
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  const checkedIds = logs.map((log) => log.routine_id);
+  const checkedIds = logs.map((log) => routineUUIDtoId.get(log.routine_id) ?? log.routine_id);
   const totalTasks = mustDoItems.length + extraItems.length;
   const completedCount = checkedIds.filter((id) => [...mustDoItems, ...extraItems].some((item) => item.id === id)).length;
   const progressValue = totalTasks ? Math.round((completedCount / totalTasks) * 100) : 0;
