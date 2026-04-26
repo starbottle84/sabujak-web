@@ -823,7 +823,7 @@ const ParentSettings = () => {
                   <p className="mt-2 text-sm text-slate-500">아침, 저녁 알림 시간과 주간 리포트를 설정합니다.</p>
                   <div className="mt-6 space-y-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-700">아침 루틴 알림 시간</label>
+                      <label className="block text-sm font-medium text-slate-700">아침 할일 알림 시간</label>
                       <input
                         type="time"
                         value={notificationState.morningReminder}
@@ -835,7 +835,7 @@ const ParentSettings = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-slate-700">저녁 루틴 알림 시간</label>
+                      <label className="block text-sm font-medium text-slate-700">저녁 할일 알림 시간</label>
                       <input
                         type="time"
                         value={notificationState.eveningReminder}

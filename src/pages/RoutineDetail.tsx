@@ -78,7 +78,7 @@ const RoutineDetail = () => {
   const params = useParams<{ type?: string }>();
   const routineType = params.type === 'evening' ? 'evening' : 'morning';
   const isMorning = routineType === 'morning';
-  const title = isMorning ? '☀️ 아침 루틴' : '🌙 저녁 루틴';
+  const title = isMorning ? '☀️ 아침 할일' : '🌙 저녁 할일';
   const { children } = useChildren();
   const child = children[0] ?? null;
   const { routines } = useRoutines(child?.id ?? null);

@@ -63,7 +63,6 @@ export function useRoutineLogs(childId: string | null) {
         child_id,
         points,
         approved: false,
-        created_at: new Date().toISOString(),
       })
       .select('*')
       .single();

@@ -86,7 +86,7 @@ const ChildHome = () => {
               <div className="flex items-center gap-4">
                 <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-yellow-400 text-4xl">☀️</span>
                 <div>
-                  <p className="text-sm font-semibold text-yellow-900">아침 루틴</p>
+                  <p className="text-sm font-semibold text-yellow-900">아침 할일</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">3 / 20 완료</p>
                 </div>
               </div>
@@ -106,7 +106,7 @@ const ChildHome = () => {
               <div className="flex items-center gap-4">
                 <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-400 text-4xl">🌙</span>
                 <div>
-                  <p className="text-sm font-semibold text-blue-900">저녁 루틴</p>
+                  <p className="text-sm font-semibold text-blue-900">저녁 할일</p>
                   <p className="mt-2 text-3xl font-bold text-slate-900">2 / 20 완료</p>
                 </div>
               </div>
