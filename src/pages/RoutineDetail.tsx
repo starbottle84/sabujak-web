@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useChildren } from '../hooks/useChildren';
 import { useRoutines } from '../hooks/useRoutines';
@@ -95,6 +96,9 @@ const RoutineDetail = () => {
     ? morningExtra
     : eveningExtra;
 
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
+
   const checkedIds = logs.map((log) => log.routine_id);
   const totalTasks = mustDoItems.length + extraItems.length;
   const completedCount = checkedIds.filter((id) => [...mustDoItems, ...extraItems].some((item) => item.id === id)).length;
@@ -103,12 +107,16 @@ const RoutineDetail = () => {
   const progressClass = progressWidthClasses[roundedProgress];
 
   const handleCheck = async (routine: any) => {
-    if (!child) return;
+    if (!child || checkingId) return;
     if (checkedIds.includes(routine.id)) return;
+    setCheckingId(routine.id);
+    setCheckError(null);
     try {
       await checkRoutine(routine.id, child.id, routine.points);
-    } catch (error) {
-      console.error('Routine check failed:', error);
+    } catch (err: any) {
+      setCheckError(err?.message ?? '루틴 체크 중 오류가 발생했어요. 다시 시도해 주세요.');
+    } finally {
+      setCheckingId(null);
     }
   };
 
@@ -138,6 +146,12 @@ const RoutineDetail = () => {
 
         <main className="mt-6 space-y-6 overflow-y-auto pb-6">
 
+          {checkError && (
+            <div className="rounded-[20px] bg-rose-50 px-4 py-3 text-sm text-rose-700 border border-rose-200">
+              ⚠️ {checkError}
+            </div>
+          )}
+
           <section className="space-y-4 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -165,6 +179,7 @@ const RoutineDetail = () => {
             <div className="grid grid-cols-3 gap-4">
               {mustDoItems.map((item) => {
                 const completed = checkedIds.includes(item.id);
+                const isChecking = checkingId === item.id;
                 const emoji = item.emoji ?? '✅';
                 const label = item.label ?? item.name ?? '루틴';
                 return (
@@ -172,18 +187,23 @@ const RoutineDetail = () => {
                     key={item.id}
                     type="button"
                     onClick={() => handleCheck(item)}
-                    className="group flex flex-col items-center gap-1 cursor-pointer"
+                    disabled={completed || !!checkingId}
+                    className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
                     <div
-                      className={`flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white text-2xl ${
-                        completed ? 'border-green-500 bg-green-100' : 'border-orange-300'
+                      className={`flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white text-2xl transition-all ${
+                        completed
+                          ? 'border-green-500 bg-green-100'
+                          : isChecking
+                          ? 'border-teal-400 bg-teal-50 animate-pulse'
+                          : 'border-orange-300 active:scale-95'
                       }`}
                     >
-                      <span>{emoji}</span>
+                      {isChecking ? <span className="text-lg">⏳</span> : <span>{completed ? '✅' : emoji}</span>}
                     </div>
                     <p className="text-xs text-center text-slate-900">{label}</p>
-                    <span className="rounded-full bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">
-                      +{item.points}P
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${completed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {completed ? '완료!' : `+${item.points}P`}
                     </span>
                   </button>
                 );
@@ -199,6 +219,7 @@ const RoutineDetail = () => {
             <div className="grid grid-cols-3 gap-4">
               {extraItems.map((item) => {
                 const completed = checkedIds.includes(item.id);
+                const isChecking = checkingId === item.id;
                 const emoji = item.emoji ?? '✅';
                 const label = item.label ?? item.name ?? '루틴';
                 return (
@@ -206,18 +227,23 @@ const RoutineDetail = () => {
                     key={item.id}
                     type="button"
                     onClick={() => handleCheck(item)}
-                    className="group flex flex-col items-center gap-1 cursor-pointer"
+                    disabled={completed || !!checkingId}
+                    className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
                     <div
-                      className={`flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white text-2xl ${
-                        completed ? 'border-green-500 bg-green-100' : 'border-orange-300'
+                      className={`flex h-16 w-16 items-center justify-center rounded-full border-2 bg-white text-2xl transition-all ${
+                        completed
+                          ? 'border-green-500 bg-green-100'
+                          : isChecking
+                          ? 'border-teal-400 bg-teal-50 animate-pulse'
+                          : 'border-green-300 active:scale-95'
                       }`}
                     >
-                      <span>{emoji}</span>
+                      {isChecking ? <span className="text-lg">⏳</span> : <span>{completed ? '✅' : emoji}</span>}
                     </div>
                     <p className="text-xs text-center text-slate-900">{label}</p>
-                    <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                      +{item.points}P
+                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${completed ? 'bg-green-100 text-green-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                      {completed ? '완료!' : `+${item.points}P`}
                     </span>
                   </button>
                 );
