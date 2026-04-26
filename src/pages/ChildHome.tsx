@@ -41,14 +41,29 @@ const ChildHome = () => {
 
   const growthStage = useMemo(() => getGrowthStage(child?.total_points ?? 0), [child]);
 
+  // 성을 제외한 이름만 추출 (한국 이름 기준: 첫 글자가 성)
+  const firstName = useMemo(() => {
+    const name = child?.name ?? '';
+    return name.length > 1 ? name.slice(1) : name;
+  }, [child]);
+
   return (
     <div className="min-h-screen bg-gray-100 text-slate-900 px-5 py-6 pb-28">
       <div className="mx-auto flex max-w-6xl flex-col gap-8">
-        <header className="flex items-center justify-between rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-teal-700 font-bold">사부작</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">아이 홈</h1>
-            <p className="mt-2 text-sm text-slate-500">{today}</p>
+        <header className="flex items-center justify-between rounded-[28px] bg-white border border-slate-200 p-5 shadow-sm gap-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-teal-700">사부작</p>
+            <h1 className="mt-0.5 text-lg font-semibold text-slate-900">아이 홈</h1>
+            <p className="text-xs text-slate-400">{today}</p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">
+              {loading ? '불러오는 중...' : `안녕, ${firstName || '친구'}야!`}
+            </p>
+            <p className="mt-1 text-sm text-slate-500">오늘의 루틴을 체크해 보자!</p>
+            {daysSinceBirth !== null && (
+              <p className="mt-1 text-xs font-semibold text-teal-600">
+                🎂 태어난 지 {daysSinceBirth.toLocaleString('ko-KR')}일
+              </p>
+            )}
           </div>
 
           {/* 성장형 동물 캐릭터 */}
@@ -57,27 +72,7 @@ const ChildHome = () => {
             <span className={`text-xs font-bold ${growthStage.textColor}`}>{growthStage.name}</span>
             <span className="text-[10px] text-slate-400 text-center whitespace-nowrap">{growthStage.desc}</span>
           </div>
-
-          <button
-            type="button"
-            onClick={() => navigate('/child-settings')}
-            className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-lg text-slate-700 transition hover:bg-gray-300"
-          >
-            ⚙️
-          </button>
         </header>
-
-        <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-3xl font-semibold text-slate-900">
-            {loading ? '자녀 정보를 불러오는 중이에요...' : `안녕, ${child?.name ?? '지우'}야!`}
-          </h2>
-          <p className="mt-3 text-sm text-slate-500">오늘의 루틴을 체크하고 재미있게 시작해요.</p>
-          {daysSinceBirth !== null && (
-            <p className="mt-2 text-sm font-semibold text-teal-600">
-              🎂 태어난 지 {daysSinceBirth.toLocaleString('ko-KR')}일이 됐어요!
-            </p>
-          )}
-        </section>
 
         <AdBanner slot={import.meta.env.VITE_ADSENSE_SLOT_TOP} />
 
