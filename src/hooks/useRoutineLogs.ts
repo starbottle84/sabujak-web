@@ -1,32 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const KNOWN_ROUTINE_IDS = [
-  'wake', 'wash', 'brush', 'dress', 'breakfast', 'bed',
-  'plant', 'toy', 'shoe', 'lunch', 'note', 'read',
-  'dinner', 'bath', 'teeth', 'pjs', 'story', 'bedtime',
-  'star', 'tidy', 'hug', 'todo', 'draw', 'music',
-];
-
-function stringToUUID(str: string): string {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (uuidRegex.test(str)) return str;
-  const hex = Array.from(str)
-    .map(c => c.charCodeAt(0).toString(16).padStart(2, '0'))
-    .join('')
-    .padEnd(32, '0')
-    .slice(0, 32);
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`;
-}
-
-const UUID_TO_ROUTINE_ID: Record<string, string> = Object.fromEntries(
-  KNOWN_ROUTINE_IDS.map(id => [stringToUUID(id), id])
-);
-
-function resolveRoutineId(value: string): string {
-  return UUID_TO_ROUTINE_ID[value] ?? value;
-}
-
 type RoutineLog = {
   id: string;
   routine_id: string;
@@ -36,6 +10,44 @@ type RoutineLog = {
   approved_at: string | null;
   created_at?: string | null;
 };
+
+export type CheckRoutineMeta = {
+  name: string;
+  type: string;
+  category: string;
+};
+
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveRoutineUUID(
+  routine_id: string,
+  child_id: string,
+  points: number,
+  meta: CheckRoutineMeta
+): Promise<string> {
+  if (uuidRegex.test(routine_id)) return routine_id;
+
+  // 이미 같은 이름의 루틴이 있으면 그 UUID 재사용
+  const { data: existing } = await supabase
+    .from('routines')
+    .select('id')
+    .eq('child_id', child_id)
+    .eq('name', meta.name)
+    .eq('type', meta.type)
+    .single();
+
+  if (existing?.id) return existing.id;
+
+  // 없으면 routines 테이블에 새로 생성
+  const { data: created, error } = await supabase
+    .from('routines')
+    .insert({ child_id, name: meta.name, points, type: meta.type, category: meta.category, is_active: true })
+    .select('id')
+    .single();
+
+  if (error) throw error;
+  return created.id;
+}
 
 export function useRoutineLogs(childId: string | null) {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
@@ -59,7 +71,7 @@ export function useRoutineLogs(childId: string | null) {
 
       const { data, error } = await supabase
         .from('routine_logs')
-        .select('*')
+        .select('*, routines(name)')
         .eq('child_id', childId)
         .order('id', { ascending: false });
 
@@ -68,15 +80,10 @@ export function useRoutineLogs(childId: string | null) {
         console.error('Failed to load routine logs:', error.message);
         setLogs([]);
       } else {
-        const filtered = (data ?? [])
-          .filter((log) => {
-            if (!log.created_at) return true;
-            return new Date(log.created_at) >= startOfDay;
-          })
-          .map((log) => ({
-            ...log,
-            routine_id: resolveRoutineId(log.routine_id),
-          }));
+        const filtered = (data ?? []).filter((log) => {
+          if (!log.created_at) return true;
+          return new Date(log.created_at) >= startOfDay;
+        });
         setLogs(filtered);
       }
       setLoading(false);
@@ -85,10 +92,17 @@ export function useRoutineLogs(childId: string | null) {
     fetchLogs();
   }, [childId]);
 
-  const checkRoutine = async (routine_id: string, child_id: string, points: number) => {
+  const checkRoutine = async (
+    routine_id: string,
+    child_id: string,
+    points: number,
+    meta: CheckRoutineMeta
+  ) => {
+    const actualRoutineId = await resolveRoutineUUID(routine_id, child_id, points, meta);
+
     const { data, error } = await supabase
       .from('routine_logs')
-      .insert({ routine_id: stringToUUID(routine_id), child_id, approved: false })
+      .insert({ routine_id: actualRoutineId, child_id, approved: false })
       .select('*')
       .single();
 
@@ -96,7 +110,7 @@ export function useRoutineLogs(childId: string | null) {
 
     const logWithPoints: RoutineLog = {
       ...data,
-      routine_id,
+      routine_id: routine_id,
       points,
       created_at: data.created_at ?? new Date().toISOString(),
     };

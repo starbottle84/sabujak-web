@@ -106,13 +106,17 @@ const RoutineDetail = () => {
   const roundedProgress = Math.min(100, Math.max(0, Math.round(progressValue / 5) * 5));
   const progressClass = progressWidthClasses[roundedProgress];
 
-  const handleCheck = async (routine: any) => {
+  const handleCheck = async (routine: any, category: 'must' | 'extra') => {
     if (!child || checkingId) return;
     if (checkedIds.includes(routine.id)) return;
     setCheckingId(routine.id);
     setCheckError(null);
     try {
-      await checkRoutine(routine.id, child.id, routine.points);
+      await checkRoutine(routine.id, child.id, routine.points, {
+        name: routine.label ?? routine.name ?? routine.id,
+        type: routineType,
+        category,
+      });
     } catch (err: any) {
       setCheckError(err?.message ?? '루틴 체크 중 오류가 발생했어요. 다시 시도해 주세요.');
     } finally {
@@ -186,7 +190,7 @@ const RoutineDetail = () => {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleCheck(item)}
+                    onClick={() => handleCheck(item, 'must')}
                     disabled={completed || !!checkingId}
                     className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
@@ -226,7 +230,7 @@ const RoutineDetail = () => {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleCheck(item)}
+                    onClick={() => handleCheck(item, 'extra')}
                     disabled={completed || !!checkingId}
                     className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
