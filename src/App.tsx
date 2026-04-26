@@ -13,6 +13,8 @@ import Statistics from './pages/Statistics';
 import Points from './pages/Points';
 import BottomNav from './components/BottomNav';
 import ResetPassword from './pages/ResetPassword';
+import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 
 function App() {
   return (
@@ -24,7 +26,7 @@ function App() {
 
 function AppRoutes() {
   const location = useLocation();
-  const hideBottomNav = location.pathname === '/' || location.pathname === '/signup' || location.pathname === '/reset-password';
+  const hideBottomNav = ['/', '/signup', '/reset-password', '/privacy', '/terms'].includes(location.pathname);
 
   return (
     <>
@@ -32,6 +34,8 @@ function AppRoutes() {
         <Route path="/" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
         <Route path="/home" element={<ProtectedRoute><ChildHome /></ProtectedRoute>} />
         <Route path="/routine/:type" element={<ProtectedRoute><RoutineDetail /></ProtectedRoute>} />
         <Route path="/points" element={<ProtectedRoute><Points /></ProtectedRoute>} />

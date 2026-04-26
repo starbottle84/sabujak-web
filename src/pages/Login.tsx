@@ -241,6 +241,15 @@ export default function Login() {
         <p className="text-[10px] text-center text-gray-500 mt-6 tracking-wide">
           🔒 SECURE DATA · 👪 PARENT APPROVED
         </p>
+        <div className="flex items-center justify-center gap-3 mt-3">
+          <button type="button" onClick={() => navigate('/terms')} className="text-[10px] text-gray-400 hover:text-gray-600 underline underline-offset-2">
+            이용약관
+          </button>
+          <span className="text-[10px] text-gray-300">|</span>
+          <button type="button" onClick={() => navigate('/privacy')} className="text-[10px] text-gray-400 hover:text-gray-600 underline underline-offset-2">
+            개인정보처리방침
+          </button>
+        </div>
 
       </div>
     </div>
