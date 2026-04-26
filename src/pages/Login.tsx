@@ -9,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<'google' | 'kakao' | null>(null);
 
   const [forgotMode, setForgotMode] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -35,6 +36,21 @@ export default function Login() {
     }
 
     navigate(fromPath, { replace: true });
+  };
+
+  const handleOAuth = async (provider: 'google' | 'kakao') => {
+    setErrorMessage(null);
+    setOauthLoading(provider);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/home`,
+      },
+    });
+    if (error) {
+      setErrorMessage(error.message);
+      setOauthLoading(null);
+    }
   };
 
   const handleForgotPassword = async () => {
@@ -209,7 +225,9 @@ export default function Login() {
         <div className="flex flex-col gap-2 mb-4">
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+            onClick={() => handleOAuth('google')}
+            disabled={!!oauthLoading}
+            className="flex w-full items-center justify-center gap-3 rounded-full border border-gray-300 bg-white py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-4 w-4 flex-shrink-0">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
@@ -217,17 +235,19 @@ export default function Login() {
               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.36-8.16 2.36-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
-            Google로 계속하기
+            {oauthLoading === 'google' ? '연결 중...' : 'Google로 계속하기'}
           </button>
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-3 rounded-full py-2.5 text-sm font-medium text-[#3C1E1E] transition hover:brightness-95"
+            onClick={() => handleOAuth('kakao')}
+            disabled={!!oauthLoading}
+            className="flex w-full items-center justify-center gap-3 rounded-full py-2.5 text-sm font-medium text-[#3C1E1E] transition hover:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ backgroundColor: '#FEE500' }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 flex-shrink-0" fill="#3C1E1E">
               <path d="M12 3C6.477 3 2 6.477 2 10.5c0 2.605 1.545 4.9 3.9 6.268-.17.633-.615 2.298-.705 2.655-.11.44.162.433.338.315.138-.093 2.193-1.48 3.081-2.082.45.062.912.094 1.386.094 5.523 0 10-3.477 10-7.75C22 6.477 17.523 3 12 3z"/>
             </svg>
-            카카오로 계속하기
+            {oauthLoading === 'kakao' ? '연결 중...' : '카카오로 계속하기'}
           </button>
         </div>
 
