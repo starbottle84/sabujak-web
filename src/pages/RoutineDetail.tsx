@@ -84,17 +84,16 @@ const RoutineDetail = () => {
   const { routines } = useRoutines(child?.id ?? null);
   const { logs, checkRoutine } = useRoutineLogs(child?.id ?? null);
 
-  const mustDoItems: RoutineItem[] = routines.length
-    ? routines.filter((routine) => routine.type === routineType && routine.category === 'must')
-    : isMorning
-    ? morningMustDo
-    : eveningMustDo;
+  const dbMustDo = routines.filter((r) => r.type === routineType && r.category === 'must');
+  const dbExtra = routines.filter((r) => r.type === routineType && r.category === 'extra');
 
-  const extraItems: RoutineItem[] = routines.length
-    ? routines.filter((routine) => routine.type === routineType && routine.category === 'extra')
-    : isMorning
-    ? morningExtra
-    : eveningExtra;
+  const mustDoItems: RoutineItem[] = dbMustDo.length > 0
+    ? dbMustDo
+    : isMorning ? morningMustDo : eveningMustDo;
+
+  const extraItems: RoutineItem[] = dbExtra.length > 0
+    ? dbExtra
+    : isMorning ? morningExtra : eveningExtra;
 
   const [checkingId, setCheckingId] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
