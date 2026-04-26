@@ -71,7 +71,7 @@ export function useRoutineLogs(childId: string | null) {
 
       const { data, error } = await supabase
         .from('routine_logs')
-        .select('*, routines(name)')
+        .select('*')
         .eq('child_id', childId)
         .order('id', { ascending: false });
 

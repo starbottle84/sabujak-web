@@ -161,12 +161,20 @@ const ParentSettings = () => {
   }, []);
 
   const getGroupRoutines = (group: RoutineGroup) => {
-    if (!routines.length) {
-      let defaults: RoutineItem[];
-      if (group === 'morningMust') defaults = [...morningMustRoutines];
-      else if (group === 'morningExtra') defaults = [...morningExtraRoutines];
-      else if (group === 'eveningMust') defaults = [...eveningMustRoutines];
-      else defaults = [...eveningExtraRoutines];
+    let defaults: RoutineItem[];
+    if (group === 'morningMust') defaults = morningMustRoutines;
+    else if (group === 'morningExtra') defaults = morningExtraRoutines;
+    else if (group === 'eveningMust') defaults = eveningMustRoutines;
+    else defaults = eveningExtraRoutines;
+
+    const isMorning = group.startsWith('morning');
+    const category = group.includes('Must') ? 'must' : 'extra';
+    const dbFiltered = routines.filter(
+      (r) => r.type === (isMorning ? 'morning' : 'evening') && r.category === category
+    );
+
+    // DB에 해당 그룹 루틴이 없으면 하드코딩 기본값 사용
+    if (!dbFiltered.length) {
       return defaults.map(r => ({
         ...r,
         is_active: localOverrides[r.id] ?? true,
@@ -174,18 +182,12 @@ const ParentSettings = () => {
       }));
     }
 
-    return routines
-      .filter((routine) => {
-        const isMorning = group.startsWith('morning');
-        const category = group.includes('Must') ? 'must' : 'extra';
-        return routine.type === (isMorning ? 'morning' : 'evening') && routine.category === category;
-      })
-      .map((routine) => ({
-        id: routine.id,
-        label: routine.name,
-        points: localPointOverrides[routine.id] ?? routine.points,
-        is_active: routine.is_active,
-      }));
+    return dbFiltered.map((routine) => ({
+      id: routine.id,
+      label: routine.name,
+      points: localPointOverrides[routine.id] ?? routine.points,
+      is_active: routine.is_active,
+    }));
   };
 
   // Add custom routine form state
