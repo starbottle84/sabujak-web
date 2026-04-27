@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 
+export type CheckRoutineMeta = {
+  name: string;
+  type: string;
+  category: string;
+};
+
 type RoutineLog = {
   id: string;
   routine_id: string;
@@ -11,13 +17,20 @@ type RoutineLog = {
   created_at?: string | null;
 };
 
-export type CheckRoutineMeta = {
-  name: string;
-  type: string;
-  category: string;
-};
-
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// localStorage로 오늘 체크한 루틴 ID 관리 — 날짜가 바뀌면 자동 리셋
+function todayKey(childId: string) {
+  return `sabujakk-checked-${childId}-${new Date().toISOString().slice(0, 10)}`;
+}
+function loadTodayIds(childId: string): string[] {
+  try { return JSON.parse(localStorage.getItem(todayKey(childId)) || '[]'); } catch { return []; }
+}
+function persistTodayId(childId: string, routineId: string) {
+  const key = todayKey(childId);
+  const ids = loadTodayIds(childId);
+  if (!ids.includes(routineId)) localStorage.setItem(key, JSON.stringify([...ids, routineId]));
+}
 
 async function resolveRoutineUUID(
   routine_id: string,
@@ -27,18 +40,17 @@ async function resolveRoutineUUID(
 ): Promise<string> {
   if (uuidRegex.test(routine_id)) return routine_id;
 
-  // 이미 같은 이름의 루틴이 있으면 그 UUID 재사용
   const { data: existing } = await supabase
     .from('routines')
     .select('id')
     .eq('child_id', child_id)
     .eq('name', meta.name)
     .eq('type', meta.type)
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (existing?.id) return existing.id;
 
-  // 없으면 routines 테이블에 새로 생성
   const { data: created, error } = await supabase
     .from('routines')
     .insert({ child_id, name: meta.name, points, type: meta.type, category: meta.category, is_active: true })
@@ -52,23 +64,24 @@ async function resolveRoutineUUID(
 export function useRoutineLogs(childId: string | null) {
   const [logs, setLogs] = useState<RoutineLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [todayCheckedIds, setTodayCheckedIds] = useState<string[]>(() =>
+    childId ? loadTodayIds(childId) : []
+  );
+
+  useEffect(() => {
+    if (childId) setTodayCheckedIds(loadTodayIds(childId));
+  }, [childId]);
 
   useEffect(() => {
     let mounted = true;
 
     const fetchLogs = async () => {
       if (!childId) {
-        if (mounted) {
-          setLogs([]);
-          setLoading(false);
-        }
+        if (mounted) { setLogs([]); setLoading(false); }
         return;
       }
 
       setLoading(true);
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
       const { data, error } = await supabase
         .from('routine_logs')
         .select('*')
@@ -80,11 +93,7 @@ export function useRoutineLogs(childId: string | null) {
         console.error('Failed to load routine logs:', error.message);
         setLogs([]);
       } else {
-        const filtered = (data ?? []).filter((log) => {
-          if (!log.created_at) return true;
-          return new Date(log.created_at) >= startOfDay;
-        });
-        setLogs(filtered);
+        setLogs(data ?? []);
       }
       setLoading(false);
     };
@@ -108,9 +117,15 @@ export function useRoutineLogs(childId: string | null) {
 
     if (error) throw error;
 
+    // 오늘 체크 목록에 추가 (날짜 기반 리셋용)
+    persistTodayId(child_id, routine_id);
+    setTodayCheckedIds((prev) =>
+      prev.includes(routine_id) ? prev : [...prev, routine_id]
+    );
+
     const logWithPoints: RoutineLog = {
       ...data,
-      routine_id: routine_id,
+      routine_id,
       points,
       created_at: data.created_at ?? new Date().toISOString(),
     };
@@ -155,5 +170,5 @@ export function useRoutineLogs(childId: string | null) {
     return true;
   };
 
-  return { logs, checkRoutine, approveRoutine, loading };
+  return { logs, checkRoutine, approveRoutine, loading, todayCheckedIds };
 }
