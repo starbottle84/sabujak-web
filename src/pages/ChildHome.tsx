@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import { useChildren } from '../hooks/useChildren';
 import AdBanner from '../components/AdBanner';
 
@@ -23,6 +24,30 @@ function getGrowthStage(points: number): GrowthStage {
 const ChildHome = () => {
   const navigate = useNavigate();
   const { children, loading } = useChildren();
+  const [livePoints, setLivePoints] = useState<number | null>(null);
+
+  // 루틴 상세에서 돌아올 때 포인트 최신값 반영
+  useEffect(() => {
+    const child = children[0];
+    if (!child) return;
+
+    const refresh = async () => {
+      const { data } = await supabase
+        .from('children')
+        .select('total_points')
+        .eq('id', child.id)
+        .single();
+      if (data) setLivePoints(data.total_points ?? 0);
+    };
+
+    refresh();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [children]);
 
   const today = useMemo(() => {
     return new Date().toLocaleDateString('ko-KR', {
@@ -39,7 +64,8 @@ const ChildHome = () => {
     return Math.floor((Date.now() - new Date(child.birthday).getTime()) / 86400000);
   }, [child]);
 
-  const growthStage = useMemo(() => getGrowthStage(child?.total_points ?? 0), [child]);
+  const totalPoints = livePoints ?? child?.total_points ?? 0;
+  const growthStage = useMemo(() => getGrowthStage(totalPoints), [totalPoints]);
 
   // 성을 제외한 이름만 추출 (한국 이름 기준: 첫 글자가 성)
   const firstName = useMemo(() => {

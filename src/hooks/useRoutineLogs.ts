@@ -19,9 +19,13 @@ type RoutineLog = {
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// localStorage로 오늘 체크한 루틴 ID 관리 — 날짜가 바뀌면 자동 리셋
+// 오늘 날짜 문자열 (YYYY-MM-DD, 로컬 기준)
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 function todayKey(childId: string) {
-  return `sabujakk-checked-${childId}-${new Date().toISOString().slice(0, 10)}`;
+  return `sabujakk-checked-${childId}-${todayStr()}`;
 }
 function loadTodayIds(childId: string): string[] {
   try { return JSON.parse(localStorage.getItem(todayKey(childId)) || '[]'); } catch { return []; }
@@ -68,8 +72,20 @@ export function useRoutineLogs(childId: string | null) {
     childId ? loadTodayIds(childId) : []
   );
 
+  // childId 바뀔 때 오늘 체크 목록 재로드
   useEffect(() => {
     if (childId) setTodayCheckedIds(loadTodayIds(childId));
+  }, [childId]);
+
+  // 앱이 백그라운드에서 돌아올 때 날짜 변경 감지 → 자정 리셋
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && childId) {
+        setTodayCheckedIds(loadTodayIds(childId));
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [childId]);
 
   useEffect(() => {
@@ -80,7 +96,6 @@ export function useRoutineLogs(childId: string | null) {
         if (mounted) { setLogs([]); setLoading(false); }
         return;
       }
-
       setLoading(true);
       const { data, error } = await supabase
         .from('routine_logs')
@@ -109,6 +124,7 @@ export function useRoutineLogs(childId: string | null) {
   ) => {
     const actualRoutineId = await resolveRoutineUUID(routine_id, child_id, points, meta);
 
+    // 루틴 로그 삽입
     const { data, error } = await supabase
       .from('routine_logs')
       .insert({ routine_id: actualRoutineId, child_id, approved: false })
@@ -117,7 +133,17 @@ export function useRoutineLogs(childId: string | null) {
 
     if (error) throw error;
 
-    // 오늘 체크 목록에 추가 (날짜 기반 리셋용)
+    // 포인트 즉시 적립 (부모 승인 없이 바로 누적)
+    const { data: childData } = await supabase
+      .from('children')
+      .select('total_points')
+      .eq('id', child_id)
+      .single();
+
+    const newTotal = (childData?.total_points ?? 0) + points;
+    await supabase.from('children').update({ total_points: newTotal }).eq('id', child_id);
+
+    // 오늘 체크 목록에 추가 (localStorage — 자정 자동 리셋)
     persistTodayId(child_id, routine_id);
     setTodayCheckedIds((prev) =>
       prev.includes(routine_id) ? prev : [...prev, routine_id]
@@ -133,32 +159,17 @@ export function useRoutineLogs(childId: string | null) {
     return logWithPoints;
   };
 
+  // approveRoutine: 포인트는 체크 시 이미 적립되므로 승인 표시만
   const approveRoutine = async (log_id: string) => {
     const log = logs.find((item) => item.id === log_id);
     if (!log) throw new Error('승인할 로그를 찾을 수 없습니다.');
 
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from('routine_logs')
       .update({ approved: true, approved_at: new Date().toISOString() })
       .eq('id', log_id);
 
-    if (updateError) throw updateError;
-
-    const { data: childData, error: childError } = await supabase
-      .from('children')
-      .select('total_points')
-      .eq('id', log.child_id)
-      .single();
-
-    if (childError) throw childError;
-
-    const updatedTotal = (childData?.total_points ?? 0) + (log.points ?? 0);
-    const { error: pointError } = await supabase
-      .from('children')
-      .update({ total_points: updatedTotal })
-      .eq('id', log.child_id);
-
-    if (pointError) throw pointError;
+    if (error) throw error;
 
     setLogs((current) =>
       current.map((item) =>
