@@ -81,7 +81,7 @@ const RoutineDetail = () => {
   const title = isMorning ? '☀️ 아침 할일' : '🌙 저녁 할일';
   const { children } = useChildren();
   const child = children[0] ?? null;
-  const { logs, checkRoutine, todayCheckedIds } = useRoutineLogs(child?.id ?? null);
+  const { logs, checkRoutine, uncheckRoutine, todayCheckedIds } = useRoutineLogs(child?.id ?? null);
 
   // 화면 표시는 항상 하드코딩 목록
   const mustDoItems: RoutineItem[] = isMorning ? morningMustDo : eveningMustDo;
@@ -100,17 +100,22 @@ const RoutineDetail = () => {
 
   const handleCheck = async (routine: any, category: 'must' | 'extra') => {
     if (!child || checkingId) return;
-    if (checkedIds.includes(routine.id)) return;
+    const alreadyChecked = checkedIds.includes(routine.id);
     setCheckingId(routine.id);
     setCheckError(null);
     try {
-      await checkRoutine(routine.id, child.id, routine.points, {
+      const meta = {
         name: routine.label ?? routine.name ?? routine.id,
         type: routineType,
         category,
-      });
+      };
+      if (alreadyChecked) {
+        await uncheckRoutine(routine.id, child.id, routine.points, meta);
+      } else {
+        await checkRoutine(routine.id, child.id, routine.points, meta);
+      }
     } catch (err: any) {
-      setCheckError(err?.message ?? '루틴 체크 중 오류가 발생했어요. 다시 시도해 주세요.');
+      setCheckError(err?.message ?? '오류가 발생했어요. 다시 시도해 주세요.');
     } finally {
       setCheckingId(null);
     }
@@ -183,7 +188,7 @@ const RoutineDetail = () => {
                     key={item.id}
                     type="button"
                     onClick={() => handleCheck(item, 'must')}
-                    disabled={completed || !!checkingId}
+                    disabled={!!checkingId && checkingId !== item.id}
                     className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
                     <div
@@ -195,11 +200,15 @@ const RoutineDetail = () => {
                           : 'border-orange-300 active:scale-95'
                       }`}
                     >
-                      {isChecking ? <span className="text-lg">⏳</span> : <span>{completed ? '✅' : emoji}</span>}
+                      {isChecking
+                        ? <span className="text-lg">⏳</span>
+                        : completed
+                        ? <span className="text-lg">✅</span>
+                        : <span>{emoji}</span>}
                     </div>
                     <p className="text-xs text-center text-slate-900">{label}</p>
                     <span className={`rounded-full px-2 py-1 text-xs font-semibold ${completed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                      {completed ? '완료!' : `+${item.points}P`}
+                      {isChecking ? '...' : completed ? '취소하기' : `+${item.points}P`}
                     </span>
                   </button>
                 );
@@ -223,7 +232,7 @@ const RoutineDetail = () => {
                     key={item.id}
                     type="button"
                     onClick={() => handleCheck(item, 'extra')}
-                    disabled={completed || !!checkingId}
+                    disabled={!!checkingId && checkingId !== item.id}
                     className="flex flex-col items-center gap-1 disabled:cursor-default"
                   >
                     <div
@@ -235,11 +244,15 @@ const RoutineDetail = () => {
                           : 'border-green-300 active:scale-95'
                       }`}
                     >
-                      {isChecking ? <span className="text-lg">⏳</span> : <span>{completed ? '✅' : emoji}</span>}
+                      {isChecking
+                        ? <span className="text-lg">⏳</span>
+                        : completed
+                        ? <span className="text-lg">✅</span>
+                        : <span>{emoji}</span>}
                     </div>
                     <p className="text-xs text-center text-slate-900">{label}</p>
                     <span className={`rounded-full px-2 py-1 text-xs font-semibold ${completed ? 'bg-green-100 text-green-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                      {completed ? '완료!' : `+${item.points}P`}
+                      {isChecking ? '...' : completed ? '취소하기' : `+${item.points}P`}
                     </span>
                   </button>
                 );

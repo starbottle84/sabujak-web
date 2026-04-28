@@ -159,6 +159,61 @@ export function useRoutineLogs(childId: string | null) {
     return logWithPoints;
   };
 
+  const uncheckRoutine = async (
+    routine_id: string,
+    child_id: string,
+    points: number,
+    meta: CheckRoutineMeta
+  ) => {
+    // 실제 UUID 조회
+    let actualRoutineId: string | null = uuidRegex.test(routine_id) ? routine_id : null;
+    if (!actualRoutineId) {
+      const { data } = await supabase
+        .from('routines')
+        .select('id')
+        .eq('child_id', child_id)
+        .eq('name', meta.name)
+        .eq('type', meta.type)
+        .limit(1)
+        .maybeSingle();
+      actualRoutineId = data?.id ?? null;
+    }
+
+    // 해당 루틴의 가장 최근 로그 삭제
+    let deletedId: string | null = null;
+    if (actualRoutineId) {
+      const { data: logRow } = await supabase
+        .from('routine_logs')
+        .select('id')
+        .eq('child_id', child_id)
+        .eq('routine_id', actualRoutineId)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (logRow) {
+        deletedId = logRow.id;
+        await supabase.from('routine_logs').delete().eq('id', logRow.id);
+      }
+    }
+
+    // 포인트 차감
+    const { data: childData } = await supabase
+      .from('children')
+      .select('total_points')
+      .eq('id', child_id)
+      .single();
+    const newTotal = Math.max(0, (childData?.total_points ?? 0) - points);
+    await supabase.from('children').update({ total_points: newTotal }).eq('id', child_id);
+
+    // localStorage + state 업데이트
+    const key = todayKey(child_id);
+    const ids = loadTodayIds(child_id);
+    localStorage.setItem(key, JSON.stringify(ids.filter((id) => id !== routine_id)));
+    setTodayCheckedIds((prev) => prev.filter((id) => id !== routine_id));
+    if (deletedId) setLogs((prev) => prev.filter((l) => l.id !== deletedId));
+  };
+
   // approveRoutine: 포인트는 체크 시 이미 적립되므로 승인 표시만
   const approveRoutine = async (log_id: string) => {
     const log = logs.find((item) => item.id === log_id);
@@ -181,5 +236,5 @@ export function useRoutineLogs(childId: string | null) {
     return true;
   };
 
-  return { logs, checkRoutine, approveRoutine, loading, todayCheckedIds };
+  return { logs, checkRoutine, uncheckRoutine, approveRoutine, loading, todayCheckedIds };
 }
