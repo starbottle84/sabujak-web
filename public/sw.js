@@ -1,7 +1,5 @@
-const CACHE_NAME = 'sabujakk-v3';
+const CACHE_NAME = 'sabujakk-v4';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/manifest.json',
   '/favicon.svg',
   '/icons/icon-192.svg',
@@ -9,7 +7,7 @@ const STATIC_ASSETS = [
   '/icons/maskable-512.svg',
 ];
 
-// 설치: 정적 파일 캐시
+// 설치: 정적 파일 캐시 (index.html 제외 — 항상 최신 유지)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -32,6 +30,20 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // HTML 네비게이션 → Network First (index.html은 항상 최신)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match('/index.html') ?? new Response('Offline', { status: 503 }))
+    );
+    return;
+  }
+
   // Supabase API 요청 → Network First (실시간 데이터 우선)
   if (url.hostname.includes('supabase.co')) {
     event.respondWith(
@@ -46,7 +58,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 정적 파일 → Cache First, 없으면 Network
+  // JS/CSS 번들 → Network First (Vite 해시 번들은 배포마다 파일명 바뀜)
+  if (url.pathname.match(/\.(js|css)$/)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // 나머지 정적 파일 → Cache First
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -57,12 +85,6 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       });
-    }).catch(() => {
-      // 오프라인이고 캐시도 없을 때 → index.html 반환 (SPA 라우팅)
-      if (request.mode === 'navigate') {
-        return caches.match('/index.html');
-      }
-      return new Response('', { status: 408 });
-    })
+    }).catch(() => new Response('', { status: 408 }))
   );
 });
