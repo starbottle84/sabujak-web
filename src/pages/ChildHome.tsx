@@ -2,7 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useChildren } from '../hooks/useChildren';
+import { useRoutineLogs } from '../hooks/useRoutineLogs';
 import AdBanner from '../components/AdBanner';
+
+const MORNING_IDS = ['wake','wash','brush','dress','breakfast','bed','plant','toy','shoe','lunch','note','read'];
+const EVENING_IDS = ['dinner','bath','teeth','pjs','story','bedtime','star','tidy','hug','todo','draw','music'];
 
 type GrowthStage = {
   emoji: string;
@@ -58,6 +62,10 @@ const ChildHome = () => {
   }, []);
 
   const child = children[0] ?? null;
+  const { todayCheckedIds } = useRoutineLogs(child?.id ?? null);
+
+  const morningDone = todayCheckedIds.filter((id) => MORNING_IDS.includes(id)).length;
+  const eveningDone = todayCheckedIds.filter((id) => EVENING_IDS.includes(id)).length;
 
   const daysSinceBirth = useMemo(() => {
     if (!child?.birthday) return null;
@@ -113,7 +121,7 @@ const ChildHome = () => {
                 <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-yellow-400 text-4xl">☀️</span>
                 <div>
                   <p className="text-sm font-semibold text-yellow-900">아침 할일</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900">3 / 20 완료</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">{morningDone} / {MORNING_IDS.length} 완료</p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-3xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
@@ -133,7 +141,7 @@ const ChildHome = () => {
                 <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-400 text-4xl">🌙</span>
                 <div>
                   <p className="text-sm font-semibold text-blue-900">저녁 할일</p>
-                  <p className="mt-2 text-3xl font-bold text-slate-900">2 / 20 완료</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">{eveningDone} / {EVENING_IDS.length} 완료</p>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-3xl bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm">
