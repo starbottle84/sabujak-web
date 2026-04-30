@@ -11,6 +11,19 @@ interface Props {
   className?: string;
 }
 
+let scriptInjected = false;
+
+function injectAdSenseScript(client: string) {
+  if (scriptInjected) return;
+  scriptInjected = true;
+  (window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1 as unknown as object;
+  const script = document.createElement('script');
+  script.async = true;
+  script.crossOrigin = 'anonymous';
+  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${client}`;
+  document.head.appendChild(script);
+}
+
 export default function AdBanner({ slot, className = '' }: Props) {
   const client = import.meta.env.VITE_ADSENSE_CLIENT as string;
   const pushed = useRef(false);
@@ -18,11 +31,12 @@ export default function AdBanner({ slot, className = '' }: Props) {
 
   useEffect(() => {
     if (isPlaceholder || pushed.current) return;
+    injectAdSenseScript(client);
     pushed.current = true;
     try {
       (window.adsbygoogle = window.adsbygoogle || []).push({});
     } catch {}
-  }, [isPlaceholder]);
+  }, [isPlaceholder, client]);
 
   if (isPlaceholder) {
     return (
