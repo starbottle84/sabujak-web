@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useChildren } from '../hooks/useChildren';
-import { useRoutines } from '../hooks/useRoutines';
 import { useRoutineLogs } from '../hooks/useRoutineLogs';
 
 type RoutineItem = {
@@ -81,7 +80,7 @@ const RoutineDetail = () => {
   const title = isMorning ? '☀️ 아침 할일' : '🌙 저녁 할일';
   const { children } = useChildren();
   const child = children[0] ?? null;
-  const { logs, checkRoutine, uncheckRoutine, todayCheckedIds } = useRoutineLogs(child?.id ?? null);
+  const { checkRoutine, uncheckRoutine, todayCheckedIds } = useRoutineLogs(child?.id ?? null);
 
   // 화면 표시는 항상 하드코딩 목록
   const mustDoItems: RoutineItem[] = isMorning ? morningMustDo : eveningMustDo;

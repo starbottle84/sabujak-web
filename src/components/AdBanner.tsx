@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 
 declare global {
   interface Window {
-    adsbygoogle: object[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    adsbygoogle: any[];
   }
 }
 
@@ -16,7 +17,9 @@ let scriptInjected = false;
 function injectAdSenseScript(client: string) {
   if (scriptInjected) return;
   scriptInjected = true;
-  (window.adsbygoogle = window.adsbygoogle || []).requestNonPersonalizedAds = 1 as unknown as object;
+  window.adsbygoogle = window.adsbygoogle || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window.adsbygoogle as any).requestNonPersonalizedAds = 1;
   const script = document.createElement('script');
   script.async = true;
   script.crossOrigin = 'anonymous';
